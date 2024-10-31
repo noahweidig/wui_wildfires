@@ -2,9 +2,9 @@
 
 ## "Changing Large Wildfire Dynamics in the wildland-urban interface of the eastern United States"
 
-Noah C. Weidig^1^, Carissa L. Wonkka^1^, Michaella A. Ivey^1^, and Victoria M. Donovan^1^.
+Noah C. Weidig\<sup\>1\</sup\>, Carissa L. Wonkka\<sup\>1\</sup\>, Michaella A. Ivey\<sup\>1\</sup\>, and Victoria M. Donovan\<sup\>1\</sup\>.
 
-^1^School of Forest, Fisheries, and Geomatics Sciences, West Florida Research and Education Center, Institute of Food and Agricultural Sciences, University of Florida, Milton, FL, USA
+\<sup\>1\</sup\>School of Forest, Fisheries, and Geomatics Sciences, West Florida Research and Education Center, Institute of Food and Agricultural Sciences, University of Florida, Milton, FL, USA
 
 **Corresponding Author's email**: noah.weidig\@ufl.edu
 
