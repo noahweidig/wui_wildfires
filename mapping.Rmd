@@ -1,0 +1,899 @@
+---
+title: "mapping"
+author: "Noah Weidig"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      include = FALSE)
+rm(list = ls())
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, readxl, sf, ggspatial, cartography, scales,
+               colorspace, pals, gridExtra, cowplot, RColorBrewer, ggrepel,
+               patchwork, raster, units, ggpmisc, ggpubr, R.utils, misty, ragg,
+               usmap)
+```
+
+```{r us_inset}
+l3eco <-
+  st_read("C:/Users/noah.weidig/OneDrive - University of Florida/thesis/data/us_eco_l3/us_eco_l3.shp", quiet = TRUE)
+
+states <-
+  st_read("C:/Users/noah.weidig/OneDrive - University of Florida/thesis/data/us_eco_l3_state_boundaries/us_eco_l3_state_boundaries.shp", quiet = TRUE) %>%
+  group_by(STATE_NAME) %>%
+  summarise(geometry = sf::st_union(geometry)) %>%
+  ungroup()
+
+etf <-
+  subset(l3eco, l3eco$NA_L1CODE == '8') %>%
+  group_by(NA_L1CODE) %>%
+  summarise(geometry = sf::st_union(geometry)) %>%
+  ungroup()
+
+us_map <-
+  ggplot() +
+  geom_sf(data = etf, aes(), fill = "grey40",
+          alpha = 0.6, color = NA, linewidth = 0.25) +
+  geom_sf(data = states, aes(), fill = "transparent", alpha = 0, 
+          color = "grey30", linewidth = 0.25) +
+  theme_void() +
+  theme(panel.border = element_rect(colour    = "grey30",
+                                    fill      = NA, 
+                                    linewidth = 1))
+```
+
+```{r study_region}
+study_region <-
+  ggplot() +
+  geom_sf(data = states, aes(), fill = "transparent", alpha = 0, 
+          color = "grey30", linewidth = 0.25) +
+  geom_sf(data = etf, aes(color = NA_L1CODE), fill = "grey80",
+          color = "black", linewidth = 0.25) +
+  theme(axis.text        = element_blank(),
+        axis.title       = element_blank(),
+        axis.ticks       = element_blank(),
+        panel.grid       = element_blank(),
+        legend.title     = element_blank(),
+        legend.position  = "none",
+        panel.background = element_rect(fill = 'transparent'),
+        plot.background  = element_rect(fill = 'transparent',
+                                        color = NA))
+
+ggsave(file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/study_region_l1.png",
+       study_region, width = 230, height = 190, units = "mm", dpi = 300, scale = 1.2)
+```
+
+```{r ecoregions}
+etf_l3_1 <- subset(l3eco, NA_L1CODE == '8') %>%
+  mutate(L3_KEY = str_replace(str_sub(L3_KEY, 5, -1),
+                              "Southern Michigan/Northern Indiana Drift Plains",
+                              "S Michigan/N Indiana Drift Plains"))
+
+etf_numbers <- etf_l3_1 %>%
+  distinct(L3_KEY) %>%
+  arrange(L3_KEY) %>%
+  mutate(row_id = row_number(L3_KEY))
+
+etf_l3 <- merge(etf_l3_1, etf_numbers, by = "L3_KEY", all = TRUE) %>%
+  mutate(L3_KEY = paste0(row_id, " ", L3_KEY)) %>%
+  arrange(row_id) %>%
+  mutate(L3_KEY = factor(L3_KEY, levels = unique(L3_KEY)))
+
+etf_labels <-
+  etf_l3 %>%
+  mutate(area = st_area(.) ) %>%
+  group_by(row_id) %>%
+  summarise()
+
+pal <- rep("grey76", each = 33)
+
+figure_1 <-
+  etf_l3 %>%
+  group_by(L3_KEY) %>%
+  arrange(row_id) %>%
+  ggplot() +
+  geom_sf(aes(fill = L3_KEY),
+          alpha = 0.6, linewidth = 0.25) +
+   ggrepel::geom_text_repel(data = etf_labels,
+                            aes(label = row_id, geometry = geometry,fontface = "plain"),
+                            stat = "sf_coordinates",
+                            family = "Arial",
+                            fun.geometry = st_point_on_surface,
+                            point.size = NA,
+                            min.segment.length = Inf,
+                            size = 4.5,
+                            color = "black",
+                            max.overlaps = 33,
+                            bg.color = "white",
+                            bg.r = 0.2) +
+  theme(text                 = element_text(family = "Arial"),
+        legend.text          = element_text(size = 11, margin = margin(t = -2)),
+        axis.text            = element_blank(),
+        axis.title           = element_blank(),
+        axis.ticks           = element_blank(),
+        legend.key.width     = unit(0, "mm"),
+        legend.key           = element_blank(),
+        legend.title         = element_blank(),
+        panel.background     = element_blank(),
+        legend.spacing.y     = unit(-.1, 'cm'),
+        legend.box.spacing   = unit(-.1, 'cm'),
+        legend.key.spacing.y = unit(-.1, 'cm'),
+        plot.title           = element_text(hjust = 0.5),
+        legend.position      = "bottom") +
+  guides(fill = guide_legend(override.aes = list(color = NA, fill = NA),
+                             byrow = F,
+                             ncol = 2),
+         title = element_blank()) +
+  scale_fill_manual(values = pal) +
+  annotation_scale(location = "bl",
+                   width_hint = 0.4,
+                   text_family = "Arial") +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.2,
+                                            "in"),
+                         pad_y       = unit(0.2,
+                                            "in"),
+                         width       = unit(0.3, "in"),
+                         height      = unit(0.4, "in"),
+                         style       = north_arrow_orienteering) +
+  inset_element(us_map,
+                left     = 0.75,
+                bottom   = -0.1,
+                right    = 1.1,
+                top      = 0.4)
+
+ggsave(figure_1, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/figure_1.png", width = 190, height = 230,
+       scale = 1, units = "mm", dpi = 300)
+```
+
+```{r wui_fig}
+l3eco <- st_read("C:/Users/noah.weidig/OneDrive - University of Florida/thesis/data/us_eco_l3/us_eco_l3.shp", quiet = TRUE)
+wui <- read_excel("C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/wui_change_table.xlsx") %>%
+  filter(wui_status %in% c("Intermix WUI", "Interface WUI"))
+
+etf_wui <- wui %>%
+  mutate("wui1990" = as.numeric(sub("%","", .$"1990")) / 100,
+         "wui2000" = as.numeric(sub("%","", .$"2000")) / 100,
+         "wui2010" = as.numeric(sub("%","", .$"2010")) / 100,
+         "wui2020" = as.numeric(sub("%","", .$"2020")) / 100,
+         "change"  = as.numeric(sub("%","",change)) / 100,
+         "1990"    = NULL,
+         "2000"    = NULL,
+         "2010"    = NULL,
+         "2020"    = NULL) %>%
+  group_by(L3_KEY) %>%
+  group_modify(~ bind_rows(., summarize(., across(where(is.numeric), sum)))) %>%
+  ungroup %>%
+    mutate_at(vars(wui_status),
+            ~replace(., is.na(.), "WUI")) %>%
+  mutate(change = (wui2020 - wui1990) / wui1990)
+
+etf_wui <- l3eco %>%
+  filter(L1_KEY == '8  EASTERN TEMPERATE FORESTS') %>%
+  merge(., etf_wui, by = "L3_KEY", all = TRUE)
+
+
+wui_state  <- brewer.pal(5, 'YlGnBu')
+wui_change <- brewer.pal(5, 'YlOrRd')
+
+wui <-
+  etf_wui %>%
+  filter(wui_status %in% "WUI") %>%
+  ggplot(data = .) +
+  geom_sf(aes(fill = wui2020)) +
+  labs(fill = "Percent",
+       title = "(a) WUI in 2020") +
+  theme(text = element_text(family = "Arial"),
+        plot.background   = element_rect(fill = "white", color = "white"),
+        panel.background  = element_rect(fill = "white", color = "white"),
+        plot.margin       = margin(0, 0, 0, 0),
+        panel.grid        = element_blank(),
+        axis.text         = element_blank(),
+        axis.ticks        = element_blank(), 
+        legend.key.size   = unit(0.6, 'cm'),
+        legend.key.height = unit(0.6, 'cm'),
+        legend.key.width  = unit(0.6, 'cm'),
+        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 10),
+        plot.title        = element_text(vjust = - 4,
+                                         hjust = 0.2,
+                                         face = "plain")) +
+  scale_fill_stepsn(colors = wui_state,
+                    n.breaks = 4,
+                    nice.breaks = F,
+                    labels = label_percent()) +
+  annotation_scale(location    = "bl",
+                   width_hint  = 0.5,
+                   text_family = "Arial",
+                   height      = unit(0.2, "cm"),
+                   text_cex    = 1.1) +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.3, "in"),
+                         pad_y       = unit(1, "in"),
+                         width       = unit(0.44, "in"),
+                         height      = unit(0.5, "in"),
+                         style       = north_arrow_fancy_orienteering)
+
+wui_a <- wui
+ggsave(wui_a, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/wui_a_fig.png",
+       width = 100, height = 100, units = "mm", dpi = 300, scale = 1.2)
+
+wui_change <-
+  etf_wui %>%
+  filter(wui_status %in% "WUI") %>%
+  ggplot(data = .) +
+  geom_sf(aes(fill = change)) +
+  labs(fill = "Percent",
+       title = "(b) Relative WUI Change 1990-2020") +
+  theme(text = element_text(family = "Arial"),
+        plot.background   = element_rect(fill = "white", color = "white"),
+        panel.background  = element_rect(fill = "white", color = "white"),
+        plot.margin       = margin(0, 0, 0, 0),
+        panel.grid        = element_blank(),
+        axis.text         = element_blank(),
+        axis.ticks           = element_blank(),
+        legend.key.size   = unit(0.6, 'cm'),
+        legend.key.height = unit(0.6, 'cm'),
+        legend.key.width  = unit(0.6, 'cm'),
+        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 10),
+        plot.title        = element_text(vjust = - 4,
+                                         hjust = 0.2,
+                                         face = "plain")) +
+  scale_fill_stepsn(colors = wui_change,
+                    n.breaks = 4,
+                    nice.breaks = F,
+                    labels = label_percent())
+
+wui_b <- wui_change + 
+  annotation_scale(location    = "bl",
+                   width_hint  = 0.5,
+                   text_family = "Arial",
+                   height      = unit(0.2, "cm"),
+                   text_cex    = 1.1) +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.3, "in"),
+                         pad_y       = unit(1, "in"),
+                         width       = unit(0.44, "in"),
+                         height      = unit(0.5, "in"),
+                         style       = north_arrow_fancy_orienteering)
+
+ggsave(wui_b, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/wui_b_fig.png",
+       width = 100, height = 100, units = "mm", dpi = 300, scale = 1.2)
+
+wui_simple_fig <-
+  ggdraw(grid.arrange(wui, wui_change, ncol = 2)) +
+  draw_plot(us_map,
+            width  = 0.29,
+            height = 0.29,
+            x      = 0.75,
+            y      = 0.01)
+
+ggsave(file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/wui_fig_small.png",
+       wui_simple_fig, width = 230, height = 100, units = "mm", dpi = 300)
+```
+
+```{r fire_fig}
+l3eco <- st_read("C:/Users/noah.weidig/OneDrive - University of Florida/thesis/data/us_eco_l3/us_eco_l3.shp", quiet = TRUE)
+mann <- read_excel("C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/regime_sum.xlsx") %>%
+  complete(wui_status, L3_KEY)
+fires <- read_excel("C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/fires_sum.xlsx")
+
+fires <- fires %>%
+  mutate(avg_size_wui = str_replace_all(avg_size_wui, ",", ""),
+         avg_size_non_wui = str_replace_all(avg_size_non_wui, ",", ""),
+         avg_size_wui = as.numeric(str_replace(avg_size_wui, " ±.*", "")),
+         avg_size_non_wui = as.numeric(str_replace(avg_size_non_wui, " ±.*", ""))) %>%
+  mutate_if(is.numeric, ~na_if(., 0))
+
+etf_fires <- l3eco %>%
+  filter(L1_KEY == '8  EASTERN TEMPERATE FORESTS') %>%
+  mutate(L3_KEY = str_sub(L3_KEY, 5, -1)) %>%
+  merge(., mann, by = "L3_KEY", all = TRUE) %>%
+  merge(., fires, by = "L3_KEY", all = TRUE) %>%
+  mutate(across(c("tau.count":"wui"), as.numeric))
+
+num_pal  <- brewer.pal(6, 'YlOrBr')
+size_pal <- brewer.pal(6, 'GnBu')
+area_pal <- brewer.pal(6, 'RdPu')
+
+wui_count <-
+  ggplot(data = etf_fires %>%
+           filter(is.na(wui_status) | wui_status != "non-WUI")) +
+  geom_sf(aes(fill = count_wui, color = "")) +
+  labs(fill = "Count",
+       title = "(a) WUI wildfire number", color = "none") +
+  theme(text              = element_text(family = "Arial"),
+        plot.background   = element_rect(fill = "white", color = "white"),
+        panel.background  = element_rect(fill = "white", color = "white"),
+        plot.margin       = margin(0, 0, 0, 0),
+        panel.grid        = element_blank(),
+        axis.text         = element_blank(),
+        axis.ticks           = element_blank(),
+        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 10),
+        legend.spacing.y  = unit(-0.3, "cm"),
+        plot.title        = element_text(vjust = - 4,
+                                         hjust = 0.2, face = "plain")) +
+  scale_color_manual(values  = NA, labels = "0") +
+  scale_fill_stepsn(colors   = num_pal,
+                    breaks   = c(40, 80, 120, 160, 200),
+                    na.value = "#e1e2e3",
+                    limits = c(0, 250),
+                    label    = scales::comma) +
+  guides(color = guide_legend("", override.aes = list(color = "#e1e2e3"), order = 2),
+         fill  = guide_colorsteps(order = 1, even.steps = TRUE)) +
+  annotation_scale(location    = "bl",
+                   width_hint  = 0.5,
+                   text_family = "Arial",
+                   height      = unit(0.2, "cm"),
+                   text_cex    = 1.1) +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.30, "in"),
+                         pad_y       = unit(1.00, "in"),
+                         width       = unit(0.44, "in"),
+                         height      = unit(0.50, "in"),
+                         style       = north_arrow_fancy_orienteering)
+
+fires_a <- wui_count
+
+ggsave(fires_a, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/fires_a_fig.png",
+       width = 100, height = 100, units = "mm", dpi = 300, scale = 1.2)
+
+wui_size <-
+  ggplot() +
+  geom_sf(data = etf_fires %>%
+            filter(is.na(wui_status) | wui_status != "non-WUI"),
+          aes(fill = avg_size_wui, color = "")) +
+  labs(fill = "Hectares", title = "(c) Average WUI wildfires size", color = "none") +
+  theme(text              = element_text(family = "Arial"),
+        plot.background   = element_rect(fill = "white", color = "white"),
+        panel.background  = element_rect(fill = "white", color = "white"),
+        plot.margin       = margin(0, 0, 0, 0),
+        panel.grid        = element_blank(),
+        axis.text         = element_blank(),
+        axis.ticks           = element_blank(),
+        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 10),
+        legend.spacing.y  = unit(-0.3, "cm"),
+        plot.title        = element_text(vjust = - 4,
+                                         hjust = 0.2, face = "plain")) +
+  scale_color_manual(values  = NA, labels = "NA") +
+  scale_fill_stepsn(colors   = size_pal,
+                    breaks   = c(500, 1000, 1500, 2000, 2500),
+                    na.value = "#e1e2e3",
+                    limits   = c(0, 3000),
+                    label    = scales::comma) +
+  guides(color = guide_legend("", override.aes = list(color = "#e1e2e3"), order = 2),
+         fill  = guide_colorsteps(order = 1, even.steps = TRUE))
+
+fires_c <- wui_size + 
+  annotation_scale(location    = "bl",
+                   width_hint  = 0.5,
+                   text_family = "Arial",
+                   height      = unit(0.2, "cm"),
+                   text_cex    = 1.1) +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.3, "in"),
+                         pad_y       = unit(1, "in"),
+                         width       = unit(0.44, "in"),
+                         height      = unit(0.5, "in"),
+                         style       = north_arrow_fancy_orienteering)
+
+ggsave(fires_c, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/fires_c_fig.png",
+       width = 100, height = 100, units = "mm", dpi = 300, scale = 1.2)
+
+wui_area <-
+  ggplot() +
+  geom_sf(data = etf_fires %>%
+            filter(is.na(wui_status) | wui_status != "non-WUI"),
+          aes(fill = ha_burned_wui, color = "")) +
+  labs(fill = "Hectares",
+       title = "(e) Total area burned by WUI wildfires", color = "none") +
+  theme(text              = element_text(family = "Arial"),
+        plot.background   = element_rect(fill = "white", color = "white"),
+        panel.background  = element_rect(fill = "white", color = "white"),
+        plot.margin       = margin(0, 0, 0, 0),
+        panel.grid        = element_blank(),
+        axis.text         = element_blank(),
+        axis.ticks           = element_blank(),
+        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 10),
+        legend.spacing.y  = unit(-0.3, "cm"),
+        plot.title        = element_text(vjust = - 4,
+                                         hjust = 0.2, face = "plain")) +
+  scale_color_manual(values  = NA, labels = "0") +
+  scale_fill_stepsn(colors   = area_pal,
+                    breaks   = c(100000, 200000, 300000, 400000, 500000),
+                    na.value = "#e1e2e3",
+                    limits   = c(0, 600000),
+                    label    = scientific) +
+  guides(color = guide_legend("", override.aes = list(color = "#e1e2e3"), order = 2),
+         fill  = guide_colorsteps(order = 1, even.steps = TRUE))
+
+fires_e <- wui_area + 
+  annotation_scale(location    = "bl",
+                   width_hint  = 0.5,
+                   text_family = "Arial",
+                   height      = unit(0.2, "cm"),
+                   text_cex    = 1.1) +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.3, "in"),
+                         pad_y       = unit(1, "in"),
+                         width       = unit(0.44, "in"),
+                         height      = unit(0.5, "in"),
+                         style       = north_arrow_fancy_orienteering)
+
+ggsave(fires_e, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/fires_e_fig.png",
+       width = 100, height = 100, units = "mm", dpi = 300, scale = 1.2)
+
+non_wui_count <-
+  ggplot() +
+  geom_sf(data = etf_fires %>%
+            filter(is.na(wui_status) | wui_status != "WUI"),
+          aes(fill = count_non_wui, color = "")) +
+  labs(fill = "Count",
+       title = "(b) Non-WUI wildfire number", color = "none") +
+  theme(text              = element_text(family = "Arial"),
+        plot.background   = element_rect(fill = "white", color = "white"),
+        panel.background  = element_rect(fill = "white", color = "white"),
+        plot.margin       = margin(0, 0, 0, 0),
+        panel.grid        = element_blank(),
+        axis.text         = element_blank(),
+        axis.ticks           = element_blank(),
+        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 10),
+        legend.spacing.y  = unit(-0.3, "cm"),
+        plot.title        = element_text(vjust = - 4,
+                                         hjust = 0.2, face = "plain")) +
+  scale_color_manual(values  = NA, labels = "0") +
+   scale_fill_stepsn(colors   = num_pal,
+                    breaks   = c(40, 80, 120, 160, 200),
+                    na.value = "#e1e2e3",
+                    limits = c(0, 250),
+                    label    = scales::comma) +
+  guides(color = guide_legend("", override.aes = list(color = "#e1e2e3"), order = 2),
+         fill  = guide_colorsteps(order = 1, even.steps = TRUE))
+
+fires_b <- non_wui_count + 
+  annotation_scale(location    = "bl",
+                   width_hint  = 0.5,
+                   text_family = "Arial",
+                   height      = unit(0.2, "cm"),
+                   text_cex    = 1.1) +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.3, "in"),
+                         pad_y       = unit(1, "in"),
+                         width       = unit(0.44, "in"),
+                         height      = unit(0.5, "in"),
+                         style       = north_arrow_fancy_orienteering)
+
+ggsave(fires_b, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/fires_b_fig.png",
+       width = 100, height = 100, units = "mm", dpi = 300, scale = 1.2)
+
+non_wui_size <-
+  ggplot() +
+  geom_sf(data = etf_fires %>%
+            filter(is.na(wui_status) | wui_status != "WUI"),
+          aes(fill = avg_size_non_wui, color = "")) +
+  labs(fill = "Hectares", title = "(d) Average non-WUI wildfires size", color = "none") +
+  theme(text              = element_text(family = "Arial"),
+        plot.background   = element_rect(fill = "white", color = "white"),
+        panel.background  = element_rect(fill = "white", color = "white"),
+        plot.margin       = margin(0, 0, 0, 0),
+        panel.grid        = element_blank(),
+        axis.text         = element_blank(),
+        axis.ticks           = element_blank(),
+        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 10),
+        legend.spacing.y  = unit(-0.3, "cm"),
+        plot.title        = element_text(vjust = - 4,
+                                         hjust = 0.2, face = "plain")) +
+  scale_color_manual(values  = NA, labels = "NA") +
+  scale_fill_stepsn(colors   = size_pal,
+                    breaks = c(500, 1000, 1500, 2000, 2500),
+                    na.value = "#e1e2e3",
+                    limits   = c(0, 3000),
+                    label    = scales::comma) +
+  guides(color = guide_legend("", override.aes = list(color = "#e1e2e3"), order = 2),
+         fill  = guide_colorsteps(order = 1, even.steps = TRUE))
+
+fires_d <- non_wui_size + 
+  annotation_scale(location    = "bl",
+                   width_hint  = 0.5,
+                   text_family = "Arial",
+                   height      = unit(0.2, "cm"),
+                   text_cex    = 1.1) +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.3, "in"),
+                         pad_y       = unit(1, "in"),
+                         width       = unit(0.44, "in"),
+                         height      = unit(0.5, "in"),
+                         style       = north_arrow_fancy_orienteering)
+
+ggsave(fires_d, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/fires_d_fig.png",
+       width = 100, height = 100, units = "mm", dpi = 300, scale = 1.2)
+
+non_wui_area <-
+  ggplot() +
+  geom_sf(data = etf_fires %>%
+            filter(is.na(wui_status) | wui_status != "WUI"),
+          aes(fill = ha_burned_non_wui, color = "")) +
+  labs(fill = "Hectares",
+       title = "(f) Total area burned by non-WUI wildfires", color = "none") +
+  theme(text              = element_text(family = "Arial"),
+        plot.background   = element_rect(fill = "white", color = "white"),
+        panel.background  = element_rect(fill = "white", color = "white"),
+        plot.margin       = margin(0, 0, 0, 0),
+        panel.grid        = element_blank(),
+        axis.text         = element_blank(),
+        axis.ticks           = element_blank(),
+        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 10),
+        legend.spacing.y  = unit(-0.3, "cm"),
+        plot.title        = element_text(vjust = - 4,
+                                         hjust = 0.2, face = "plain")) +
+  scale_color_manual(values  = NA, labels = "0") +
+  scale_fill_stepsn(colors   = area_pal,
+                    breaks   = c(100000, 200000, 300000, 400000, 500000),
+                    na.value = "#e1e2e3",
+                    limits   = c(0, 600000),
+                    label    = scientific) +
+  guides(color = guide_legend("", override.aes = list(color = "#e1e2e3"), order = 2),
+         fill  = guide_colorsteps(order = 1, even.steps = TRUE))
+
+fires_f <- non_wui_area + 
+  annotation_scale(location    = "bl",
+                   width_hint  = 0.5,
+                   text_family = "Arial",
+                   height      = unit(0.2, "cm"),
+                   text_cex    = 1.1) +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.3, "in"),
+                         pad_y       = unit(1, "in"),
+                         width       = unit(0.44, "in"),
+                         height      = unit(0.5, "in"),
+                         style       = north_arrow_fancy_orienteering)
+
+ggsave(fires_f, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/fires_f_fig.png",
+       width = 100, height = 100, units = "mm", dpi = 300, scale = 1.2)
+
+library(patchwork)
+
+# Arrange the plots in a grid layout
+combined_plots <- (wui_count | non_wui_count) /
+                  (wui_size | non_wui_size) /
+                  (wui_area | non_wui_area)
+
+# Add the map as an inset
+fires_fig <- combined_plots +
+  inset_element(us_map, 
+                left = 0.32, 
+                bottom = 0.125, 
+                right = 0.5, 
+                top = 3.95, 
+                align_to = "full")
+
+ggsave(fires_fig, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/fires_fig.png",
+       width = 190, height = 230, units = "mm", dpi = 300, scale = 1.2)
+```
+
+```{r mk_fig}
+wui_count_tau <-
+  ggplot() +
+  geom_sf(data = etf_fires %>%
+            filter(is.na(wui_status) | wui_status != "non-WUI"),
+          aes(fill = tau.count, color = "")) +
+  labs(fill = "Tau", title = "(a) WUI wildfire number", color = "none") +
+  theme(text              = element_text(family = "Arial"),
+        plot.background   = element_rect(fill = "white", color = "white"),
+        panel.background  = element_rect(fill = "white", color = "white"),
+        plot.margin       = margin(0, 0, 0, 0),
+        panel.grid        = element_blank(),
+        axis.text         = element_blank(),
+        axis.ticks           = element_blank(),
+        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 10),
+        legend.spacing.y  = unit(-0.3, "cm"),
+        plot.title        = element_text(vjust = - 4,
+                                         hjust = 0.2, face = "plain")) +
+  scale_color_manual(values  = NA, labels = "NA") +
+  scale_fill_steps2(low      = "#002bb5",
+                    mid      = "white",
+                    high     = "#fe0100",
+                    midpoint = 0,
+                    na.value = "#e1e2e3",
+                    n.breaks = 7,
+                    limits   = c(-0.4, 0.4),
+                    breaks   = c(-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3),
+                    label    = scales::comma) +
+  guides(color = guide_legend("", override.aes = list(color = "#e1e2e3"), order = 2),
+         fill  = guide_colorsteps(order = 1, even.steps = TRUE)) +
+  annotation_scale(location    = "bl",
+                   width_hint  = 0.5,
+                   text_family = "Arial",
+                   height      = unit(0.2, "cm"),
+                   text_cex    = 1.1) +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.3, "in"),
+                         pad_y       = unit(1, "in"),
+                         width       = unit(0.44, "in"),
+                         height      = unit(0.5, "in"),
+                         style       = north_arrow_fancy_orienteering)
+
+mk_fig_a <- wui_count_tau
+
+ggsave(mk_fig_a, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/mk_fig_a.png",
+       width = 100, height = 100, units = "mm", dpi = 300, scale = 1.2)
+
+non_wui_count_tau <-
+  ggplot() +
+  geom_sf(data = etf_fires %>%
+            filter(is.na(wui_status) | wui_status != "WUI"),
+          aes(fill = tau.count, color = "")) +
+  labs(fill = "Tau", title = "(b) Non-WUI wildfire number", color = "none") +
+  theme(text              = element_text(family = "Arial"),
+        plot.background   = element_rect(fill = "white", color = "white"),
+        panel.background  = element_rect(fill = "white", color = "white"),
+        plot.margin       = margin(0, 0, 0, 0),
+        panel.grid        = element_blank(),
+        axis.text         = element_blank(),
+        axis.ticks           = element_blank(),
+        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 10),
+        legend.spacing.y  = unit(-0.3, "cm"),
+        plot.title        = element_text(vjust = - 4,
+                                         hjust = 0.2, face = "plain")) +
+  scale_color_manual(values  = NA, labels = "NA") +
+  scale_fill_steps2(low      = "#002bb5",
+                    mid      = "white",
+                    high     = "#fe0100",
+                    midpoint = 0,
+                    na.value = "#e1e2e3",
+                    n.breaks = 7,
+                    limits   = c(-0.4, 0.4),
+                    breaks   = c(-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3),
+                    label    = scales::comma) +
+  guides(color = guide_legend("", override.aes = list(color = "#e1e2e3"), order = 2),
+         fill  = guide_colorsteps(order = 1, even.steps = TRUE))
+
+mk_fig_b <- non_wui_count_tau + 
+  annotation_scale(location    = "bl",
+                   width_hint  = 0.5,
+                   text_family = "Arial",
+                   height      = unit(0.2, "cm"),
+                   text_cex    = 1.1) +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.3, "in"),
+                         pad_y       = unit(1, "in"),
+                         width       = unit(0.44, "in"),
+                         height      = unit(0.5, "in"),
+                         style       = north_arrow_fancy_orienteering)
+
+ggsave(mk_fig_b, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/mk_fig_b.png",
+       width = 100, height = 100, units = "mm", dpi = 300, scale = 1.2)
+
+wui_size_tau <-
+  ggplot() +
+  geom_sf(data = etf_fires %>%
+            filter(is.na(wui_status) | wui_status != "non-WUI"),
+          aes(fill = tau.size, color = "")) +
+  labs(fill = "Tau", title = "(c) Average WUI wildfires size", color = "none") +
+  theme(text              = element_text(family = "Arial"),
+        plot.background   = element_rect(fill = "white", color = "white"),
+        panel.background  = element_rect(fill = "white", color = "white"),
+        plot.margin       = margin(0, 0, 0, 0),
+        panel.grid        = element_blank(),
+        axis.text         = element_blank(),
+        axis.ticks           = element_blank(),
+        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 10),
+        legend.spacing.y  = unit(-0.3, "cm"),
+        plot.title        = element_text(vjust = - 4,
+                                         hjust = 0.2, face = "plain")) +
+  scale_color_manual(values  = NA, labels = "NA") +
+  scale_fill_steps2(low      = "#002bb5",
+                    mid      = "white",
+                    high     = "#fe0100",
+                    midpoint = 0,
+                    na.value = "#e1e2e3",
+                    n.breaks = 7,
+                    limits   = c(-0.4, 0.4),
+                    breaks   = c(-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3),
+                    label    = scales::comma) +
+  guides(color = guide_legend("", override.aes = list(color = "#e1e2e3"), order = 2),
+         fill  = guide_colorsteps(order = 1, even.steps = TRUE))
+
+mk_fig_c <- wui_size_tau + 
+  annotation_scale(location    = "bl",
+                   width_hint  = 0.5,
+                   text_family = "Arial",
+                   height      = unit(0.2, "cm"),
+                   text_cex    = 1.1) +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.3, "in"),
+                         pad_y       = unit(1, "in"),
+                         width       = unit(0.44, "in"),
+                         height      = unit(0.5, "in"),
+                         style       = north_arrow_fancy_orienteering)
+
+ggsave(mk_fig_c, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/mk_fig_c.png",
+       width = 100, height = 100, units = "mm", dpi = 300, scale = 1.2)
+
+non_wui_size_tau <-
+  ggplot() +
+  geom_sf(data = etf_fires %>%
+            filter(is.na(wui_status) | wui_status != "WUI"),
+          aes(fill = tau.size, color = "")) +
+  labs(fill = "Tau", title = "(d) Average non-WUI wildfires size", color = "none") +
+  theme(text              = element_text(family = "Arial"),
+        plot.background   = element_rect(fill = "white", color = "white"),
+        panel.background  = element_rect(fill = "white", color = "white"),
+        plot.margin       = margin(0, 0, 0, 0),
+        panel.grid        = element_blank(),
+        axis.text         = element_blank(),
+        axis.ticks           = element_blank(),
+        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 10),
+        legend.spacing.y  = unit(-0.3, "cm"),
+        plot.title        = element_text(vjust = - 4,
+                                         hjust = 0.2, face = "plain")) +
+  scale_color_manual(values  = NA, labels = "NA") +
+  scale_fill_steps2(low      = "#002bb5",
+                    mid      = "white",
+                    high     = "#fe0100",
+                    midpoint = 0,
+                    na.value = "#e1e2e3",
+                    n.breaks = 7,
+                    limits   = c(-0.4, 0.4),
+                    breaks   = c(-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3),
+                    label    = scales::comma) +
+  guides(color = guide_legend("", override.aes = list(color = "#e1e2e3"), order = 2),
+         fill  = guide_colorsteps(order = 1, even.steps = TRUE))
+
+mk_fig_d <- non_wui_size_tau + 
+  annotation_scale(location    = "bl",
+                   width_hint  = 0.5,
+                   text_family = "Arial",
+                   height      = unit(0.2, "cm"),
+                   text_cex    = 1.1) +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.3, "in"),
+                         pad_y       = unit(1, "in"),
+                         width       = unit(0.44, "in"),
+                         height      = unit(0.5, "in"),
+                         style       = north_arrow_fancy_orienteering)
+
+ggsave(mk_fig_d, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/mk_fig_d.png",
+       width = 100, height = 100, units = "mm", dpi = 300, scale = 1.2)
+
+wui_area_tau <-
+  ggplot() +
+  geom_sf(data = etf_fires %>%
+            filter(is.na(wui_status) | wui_status != "non-WUI"),
+          aes(fill = tau.area, color = "")) +
+  labs(fill = "Tau", title = "(e) Total area burned by WUI wildfires", color = "none") +
+  theme(text              = element_text(family = "Arial"),
+        plot.background   = element_rect(fill = "white", color = "white"),
+        panel.background  = element_rect(fill = "white", color = "white"),
+        plot.margin       = margin(0, 0, 0, 0),
+        panel.grid        = element_blank(),
+        axis.text         = element_blank(),
+        axis.ticks           = element_blank(),
+        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 10),
+        legend.spacing.y  = unit(-0.3, "cm"),
+        plot.title        = element_text(vjust = - 4,
+                                         hjust = 0.2, face = "plain")) +
+  scale_color_manual(values  = NA, labels = "NA") +
+  scale_fill_steps2(low      = "#002bb5",
+                    mid      = "white",
+                    high     = "#fe0100",
+                    midpoint = 0,
+                    na.value = "#e1e2e3",
+                    n.breaks = 7,
+                    limits   = c(-0.4, 0.4),
+                    breaks   = c(-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3),
+                    label    = scales::comma) +
+  guides(color = guide_legend("", override.aes = list(color = "#e1e2e3"), order = 2),
+         fill  = guide_colorsteps(order = 1, even.steps = TRUE))
+
+mk_fig_e <- wui_area_tau + 
+  annotation_scale(location    = "bl",
+                   width_hint  = 0.5,
+                   text_family = "Arial",
+                   height      = unit(0.2, "cm"),
+                   text_cex    = 1.1) +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.3, "in"),
+                         pad_y       = unit(1, "in"),
+                         width       = unit(0.44, "in"),
+                         height      = unit(0.5, "in"),
+                         style       = north_arrow_fancy_orienteering)
+
+ggsave(mk_fig_e, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/mk_fig_e.png",
+       width = 100, height = 100, units = "mm", dpi = 300, scale = 1.2)
+
+non_wui_area_tau <-
+  ggplot() +
+  geom_sf(data = etf_fires %>%
+            filter(is.na(wui_status) | wui_status != "WUI"),
+          aes(fill = tau.area, color = "")) +
+  labs(fill = "Tau", title = "(f) Total area burned by non-WUI wildfires", color = "none") +
+  theme(text              = element_text(family = "Arial"),
+        plot.background   = element_rect(fill = "white", color = "white"),
+        panel.background  = element_rect(fill = "white", color = "white"),
+        plot.margin       = margin(0, 0, 0, 0),
+        panel.grid        = element_blank(),
+        axis.text         = element_blank(),
+        axis.ticks           = element_blank(),
+        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 10),
+        legend.spacing.y  = unit(-0.3, "cm"),
+        plot.title        = element_text(vjust = - 4,
+                                         hjust = 0.2, face = "plain")) +
+  scale_color_manual(values  = NA, labels = "NA") +
+  scale_fill_steps2(low      = "#002bb5",
+                    mid      = "white",
+                    high     = "#fe0100",
+                    midpoint = 0,
+                    na.value = "#e1e2e3",
+                    n.breaks = 7,
+                    limits   = c(-0.4, 0.4),
+                    breaks   = c(-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3),
+                    label    = scales::comma) +
+  guides(color = guide_legend("", override.aes = list(color = "#e1e2e3"), order = 2),
+         fill  = guide_colorsteps(order = 1, even.steps = TRUE))
+
+mk_fig_f <- non_wui_area_tau + 
+  annotation_scale(location    = "bl",
+                   width_hint  = 0.5,
+                   text_family = "Arial",
+                   height      = unit(0.2, "cm"),
+                   text_cex    = 1.1) +
+  annotation_north_arrow(location    = "tl",
+                         which_north = "true", 
+                         pad_x       = unit(0.3, "in"),
+                         pad_y       = unit(1, "in"),
+                         width       = unit(0.44, "in"),
+                         height      = unit(0.5, "in"),
+                         style       = north_arrow_fancy_orienteering)
+
+ggsave(mk_fig_f, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/mk_fig_f.png",
+       width = 100, height = 100, units = "mm", dpi = 300, scale = 1.2)
+
+library(patchwork)
+
+# Arrange the plots in a grid layout
+combined_plots <- (wui_count_tau | non_wui_count_tau) /
+                  (wui_size_tau | non_wui_size_tau) /
+                  (wui_area_tau | non_wui_area_tau)
+
+# Add the map as an inset
+mk_fig <- combined_plots +
+  inset_element(us_map, 
+                left = 0.335, 
+                bottom = 0.125, 
+                right = 0.5, 
+                top = 3.95, 
+                align_to = "full")
+
+ggsave(mk_fig, file = "C:/Users/noah.weidig/OneDrive - University of Florida/thesis/chapter-1/mk_fig.png",
+       width = 190, height = 230, units = "mm", dpi = 300,scale = 1.2)
+```

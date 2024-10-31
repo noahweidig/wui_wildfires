@@ -1,0 +1,442 @@
+---
+title: "Supplementary Materials for Large Wildfire Dynamics in the Wildland-urban Interface of the Eastern United States"
+author: "Noah C. Weidig^1^, Michaella A. Ivey^1^, Carissa L. Wonkka^1^, and Victoria M. Donovan^1^"
+output:
+  word_document:
+    reference_docx: template_suppl.docx
+    pandoc_args:
+     '--lua-filter=page-breaks.lua'
+---
+
+```{r setup, echo=FALSE, warning=FALSE, include=FALSE}
+rm(list = ls())
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, ft.align = "center", 
+                      ft_max_row = 6, include = FALSE, tab.topcaption = FALSE)
+
+pacman::p_load(tidyverse, readxl, scales, flextable, lemon, data.table)
+
+set_flextable_defaults(font.size   = 12,
+                       padding     = 3,
+                       font.family = "Times New Roman",
+                       na_str      = "NA",
+                       nan_str     = "NaN")
+
+knitr::opts_chunk$set(message = FALSE,
+                      warning = FALSE,
+                      ft.align = "center",
+                      ft_max_row = 6,
+                      include = FALSE,
+                      tab.topcaption = TRUE)
+
+use_df_printer()
+
+options(dplyr.summarise.inform = FALSE)
+```
+
+```{r wui_area_summary_table}
+wui_area_all <- read_excel("wui_change_table.xlsx")
+
+wui_change_table <- wui_area_all %>%
+  filter(wui_status != "Water") %>%
+  mutate(L3_KEY = str_sub(L3_KEY, 5, -1),
+         area_km2 = round(area_km2, 0),
+         rel_change = percent((as.numeric(sub("%", "", `2020`)) -
+                  as.numeric(sub("%", "", `1990`))) /
+                 as.numeric(sub("%", "", `1990`)), accuracy = 0.1)) %>%
+  arrange(L3_KEY) %>%
+  flextable() %>%
+  fontsize(., size = 9, part = "all") %>%
+  set_header_labels(., L3_KEY  = "Ecoregion",
+                    area_km2   = "total area (km^2)",
+                    wui_status = "Class",
+                    "1990"     = "1990",
+                    "2000"     = "2000",
+                    "2010"     = "2010",
+                    "2020"     = "2020",
+                    change     = "% \u394",
+                    rel_change = "rel. \u394") %>%
+  compose(., part = "header", i = 1, j = 2,
+          value = as_paragraph("Area (km",as_sup("2"),")")) %>%
+  autofit() %>%
+  align(.,j = c(1,3), i = NULL, align = "left", part = "header") %>%
+  align(., j = c(2,4:9), i = NULL, align = "right", part = "all") %>%
+  merge_v(., j = "L3_KEY", target = c("L3_KEY", "area_km2")) %>%
+  hline(., part = "body", j = NULL,
+        i = c(seq(from = 6, by = 6, length.out = 33))) %>%
+  vline(., part = "body", border = fp_border_default(), j = 2) %>%
+  hline(., border = fp_border_default(), part = "body", i = 132) %>%
+  valign(., j = 1:2, valign = 'top', part = "all") %>%
+  set_caption(., caption = "Table S1. Changes in housing density classes across Level III ecoregions of the eastern United States from 1990 to 2020, including Interface wildland-urban interface (WUI), intermix WUI, and varying vegetation and housing density combinations. Water was omitted due to negligible changes.", word_stylename = "Table Caption", align_with_table = FALSE, autonum = TRUE)
+```
+
+```{r wui_area_bar_graphs}
+calculate_integer_breaks <- function(x) {
+  pretty_int_breaks <- pretty_breaks(n = 4)(pretty(x))
+  pretty_int_breaks[pretty_int_breaks == as.integer(pretty_int_breaks)]
+}
+
+wui_area_sum <-
+  read_csv("wui_area_l1_summary.csv", show_col_types = F) %>%
+  mutate(L3_KEY = "08  Eastern Temperate Forests", .before = wui_type) %>%
+  rbind(., read_csv("wui_area_l3_summary.csv", show_col_types = F)) %>%
+  mutate(L3_KEY = str_sub(L3_KEY, 5, -1)) %>%
+  mutate(wui_type = recode(wui_type, "interface" = "Interface WUI",
+                                     "intermix"  = "Intermix WUI")) %>%
+  mutate(L3_KEY = str_replace(L3_KEY,
+                              "Southern Michigan/Northern Indiana Drift Plains",
+                              "S Michigan/N Indiana Drift Plains")) %>%
+  mutate(L3_KEY =
+           factor(L3_KEY, levels = c("Eastern Temperate Forests",
+                                     sort(unique(L3_KEY[L3_KEY !=
+                                     "Eastern Temperate Forests"]))))) %>%
+  ggplot(data = ., x = year, y = percent * 100) +
+  geom_bar(aes(color = wui_type, fill = wui_type, x = year, y = percent * 100),
+           position = 'stack', stat = 'identity', width = 8) +
+  theme_bw() +
+  scale_fill_grey() +
+  scale_colour_grey() +
+  scale_y_continuous(labels = scales::number, breaks = calculate_integer_breaks) +
+  theme(text = element_text(family = "Arial"),
+        panel.grid.minor = element_blank(),
+        strip.background = element_rect(colour = "white", fill = "white"),
+        strip.text.x = element_text(size = 8, margin = margin(0, 0, 0.3, 0)),
+        legend.position = "inside",
+        legend.direction = "horizontal",
+        legend.position.inside = c(0.84, 0.02),
+        panel.spacing.y = unit(0.2, "lines"),
+        panel.spacing.x = unit(0.2, "lines")) +
+  labs(fill = "", color = "", y = "Percent area (%)", x = "Year")+
+  facet_rep_wrap(~ L3_KEY, scales = "free_y", repeat.tick.labels = TRUE,
+                 labeller = labeller(L3_KEY = label_wrap_gen(25)))
+
+ggsave(wui_area_sum, filename = "wui_change_l3.jpg",
+       dpi = 600, width = 230, height = 140, units = "mm")
+```
+
+```{r fires_preprocessing}
+wui_status_df <- read_csv("wui_status.csv", show_col_types = F)
+
+fires <- read_excel("fires.xlsx") %>%
+  mutate(Ig_Date    =  as_date(Ig_Date),
+         year       =  as.numeric(year(as_date(Ig_Date)))) %>%
+  filter(area_ha    >  200,
+         Incid_Type == "Wildfire",
+         year       >= 1986 &
+         year       <= 2021) %>%
+  subset(select = c("STATE_NAME","L3_KEY","year","WUIFLAG1990","WUIFLAG2000","WUIFLAG2010",
+                    "WUIFLAG2020","WUICLASS1990","WUICLASS2000","WUICLASS2010",
+                    "WUICLASS2020", "Event_ID", "Ig_Date", "area_ha", "Shape_Area")) %>%
+  merge(., wui_status_df, by = "Event_ID")
+
+fires_l1_sum <- fires %>%
+  group_by(wui_status, year) %>%
+  summarize(count     = n_distinct(Event_ID),
+            ha_burned = round( sum(area_ha[!duplicated(Event_ID)]), 0),
+            avg_size  = round(mean(area_ha[!duplicated(Event_ID)]), 0),
+            size_se   = round(sqrt(var(area_ha[!duplicated(Event_ID)]) /
+                                     n_distinct(Event_ID)), 0)) %>%
+  mutate(L3_KEY = "08  Eastern Temperate Forests", .before = wui_status)
+
+fires_l3_sum <- fires %>%
+  group_by(L3_KEY, wui_status, year) %>%
+  summarize(count     = n_distinct(Event_ID[!duplicated(Event_ID)]),
+            ha_burned = round(sum(area_ha[!duplicated(Event_ID)]), 0),
+            avg_size  = round(mean(area_ha[!duplicated(Event_ID)]), 0),
+            size_se   = round(sqrt(var(area_ha[!duplicated(Event_ID)]) /
+                                     n_distinct(Event_ID)), 0)) %>%
+  rbind(., fires_l1_sum) %>%
+  mutate(L3_KEY = str_sub(L3_KEY, 5, -1)) %>%
+  mutate(L3_KEY =
+           factor(L3_KEY, levels = c("Eastern Temperate Forests",
+                                     sort(unique(L3_KEY[L3_KEY !=
+                                     "Eastern Temperate Forests"]))))) %>%
+  arrange(L3_KEY)
+```
+
+```{r number_area_bar_graphs}
+calculate_integer_breaks <- function(x) {
+  pretty_int_breaks <- pretty_breaks(n = 5)(pretty(x))
+  pretty_int_breaks[pretty_int_breaks == as.integer(pretty_int_breaks)]
+}
+
+wui_count_plot <- fires_l3_sum %>%
+  filter(wui_status == "wui") %>%
+  group_by(L3_KEY) %>%
+  filter(sum(count) >= 10) %>%
+  ggplot(aes(year, count)) +
+  geom_bar(aes(), fill = "red", color = "black", linewidth = 0.3,
+           stat = "identity", width = 0.9) +
+  theme_bw() +
+  labs(x = "Year", y = "Number of WUI large wildfires") +
+  theme(text = element_text(family = "Arial"),
+        legend.position = "none",
+        panel.grid.minor = element_blank(),
+        strip.background = element_rect(colour = "white", fill = "white"),
+        strip.text.x = element_text(size = 8)) +
+  facet_wrap(. ~ US_L3NAME, scales = "free_y") +
+  scale_x_continuous(breaks = c(1990, 2000, 2010, 2020)) +
+  guides(fill = element_blank()) +
+  scale_y_continuous(breaks = calculate_integer_breaks) +
+  facet_rep_wrap(~ L3_KEY, scales = "free_y", repeat.tick.labels = TRUE,
+                 labeller = labeller(L3_KEY = label_wrap_gen(30)))
+
+ggsave(wui_count_plot, filename = "wui_count_bar.jpg",
+       dpi = 600, width = 230, height = 140, units = "mm")
+
+non_wui_count_plot <- fires_l3_sum %>%
+  filter(wui_status == "non_wui") %>%
+  group_by(L3_KEY) %>%
+  filter(sum(count) >= 10) %>%
+  ggplot(aes(year, count)) +
+  geom_bar(aes(), fill = "red", color = "black", linewidth = 0.3,
+           stat = "identity", width = 0.9) +
+  theme_bw() +
+  labs(x = "Year", y = "Number of non-WUI large wildfires") +
+  theme(text = element_text(family = "Arial"),
+        legend.position = "none",
+        panel.grid.minor = element_blank(),
+        strip.background = element_rect(colour = "white", fill = "white"),
+        strip.text.x = element_text(size = 8)) +
+  facet_wrap(. ~ US_L3NAME, scales = "free_y") +
+  scale_x_continuous(breaks = c(1990, 2000, 2010, 2020)) +
+  guides(fill = element_blank()) +
+  scale_y_continuous(breaks = calculate_integer_breaks) +
+  facet_rep_wrap(~ L3_KEY, scales = "free_y", repeat.tick.labels = TRUE,
+                 labeller = labeller(L3_KEY = label_wrap_gen(30)))
+
+ggsave(non_wui_count_plot, filename = "non_wui_count_bar.jpg",
+       dpi = 600, width = 230, height = 140, units = "mm")
+
+wui_area_plot <- fires_l3_sum %>%
+  filter(wui_status == "wui") %>%
+  group_by(L3_KEY) %>%
+  filter(sum(count) >= 10) %>%
+  ggplot(aes(year, ha_burned)) +
+  geom_bar(aes(), fill = "red", color = "black", linewidth = 0.3,
+           stat = "identity", width = 0.9) +
+  theme_bw() +
+  labs(x = "Year", y = "Area burned (ha) by WUI large wildfires") +
+  theme(text = element_text(family = "Arial"),
+        legend.position = "none",
+        panel.grid.minor = element_blank(),
+        strip.background = element_rect(colour = "white", fill = "white"),
+        strip.text.x = element_text(size = 8)) +
+  facet_wrap(. ~ US_L3NAME, scales = "free_y") +
+  scale_x_continuous(breaks = c(1990, 2000, 2010, 2020)) +
+  guides(fill = element_blank()) +
+  scale_y_continuous(labels = scientific_format()) +
+  facet_rep_wrap(~ L3_KEY, scales = "free_y", repeat.tick.labels = TRUE,
+                 labeller = labeller(L3_KEY = label_wrap_gen(30)))
+
+ggsave(wui_area_plot, filename = "wui_area_bar.jpg",
+       dpi = 600, width = 230, height = 140, units = "mm")
+
+non_wui_area_plot <- fires_l3_sum %>%
+  filter(wui_status == "non_wui") %>%
+  group_by(L3_KEY) %>%
+  filter(sum(count) >= 10) %>%
+  ggplot(aes(year, ha_burned)) +
+  geom_bar(aes(), fill = "red", color = "black", linewidth = 0.3,
+           stat = "identity", width = 0.9) +
+  theme_bw() +
+  labs(x = "Year", y = "Area burned (ha) by non-WUI large wildfires") +
+  theme(text = element_text(family = "Arial"),
+        legend.position = "none",
+        panel.grid.minor = element_blank(),
+        strip.background = element_rect(colour = "white", fill = "white"),
+        strip.text.x = element_text(size = 8)) +
+  facet_wrap(. ~ US_L3NAME, scales = "free_y") +
+  scale_x_continuous(breaks = c(1990, 2000, 2010, 2020)) +
+  guides(fill = element_blank()) +
+  scale_y_continuous(labels = scientific_format()) +
+  facet_rep_wrap(~ L3_KEY, scales = "free_y", repeat.tick.labels = TRUE,
+                 labeller = labeller(L3_KEY = label_wrap_gen(30)))
+
+ggsave(non_wui_area_plot, filename = "non_wui_area_bar.jpg",
+       dpi = 600, width = 230, height = 140, units = "mm")
+```
+
+```{r size_scatter_plots}
+wui_size_plot <- fires_l3_sum %>%
+  filter(wui_status == "wui") %>%
+  group_by(L3_KEY) %>%
+  filter(sum(count) >= 10) %>%
+  ggplot(aes(year, avg_size)) +
+  geom_errorbar(aes(ymin = avg_size - size_se, ymax = avg_size + size_se)) +
+  geom_point(aes(), fill = "red", color = "red") +
+  theme_bw() +
+  labs(x = "Year", y = "Average size (ha) of WUI large wildfires") +
+  theme(text = element_text(family = "Arial"),
+        legend.position = "none",
+        panel.grid.minor = element_blank(),
+        strip.background = element_rect(colour = "white", fill = "white"),
+        strip.text.x = element_text(size = 8)) +
+  facet_wrap(. ~ US_L3NAME, scales = "free_y") +
+  scale_x_continuous(breaks = c(1990, 2000, 2010, 2020)) +
+  guides(fill = element_blank()) +
+  scale_y_continuous(breaks = calculate_integer_breaks) +
+  facet_rep_wrap(~ L3_KEY, scales = "free_y", repeat.tick.labels = TRUE,
+                 labeller = labeller(L3_KEY = label_wrap_gen(30)))
+
+ggsave(wui_size_plot, filename = "wui_size_bar.jpg",
+       dpi = 600, width = 230, height = 140, units = "mm")
+
+non_wui_size_plot <- fires_l3_sum %>%
+  filter(wui_status == "non_wui") %>%
+  group_by(L3_KEY) %>%
+  filter(sum(count) >= 10) %>%
+  ggplot(aes(year, avg_size)) +
+  geom_errorbar(aes(ymin = avg_size - size_se, ymax = avg_size + size_se)) +
+  geom_point(aes(), fill = "red", color = "red") +
+  theme_bw() +
+  labs(x = "Year", y = "Average size (ha) of non-WUI large wildfires") +
+  theme(text = element_text(family = "Arial"),
+        legend.position = "none",
+        panel.grid.minor = element_blank(),
+        strip.background = element_rect(colour = "white", fill = "white"),
+        strip.text.x = element_text(size = 8)) +
+  facet_wrap(. ~ US_L3NAME, scales = "free_y") +
+  scale_x_continuous(breaks = c(1990, 2000, 2010, 2020)) +
+  guides(fill = element_blank()) +
+  scale_y_continuous(breaks = calculate_integer_breaks) +
+  facet_rep_wrap(~ L3_KEY, scales = "free_y", repeat.tick.labels = TRUE,
+                 labeller = labeller(L3_KEY = label_wrap_gen(30)))
+
+ggsave(non_wui_size_plot, filename = "non_wui_size_bar.jpg",
+       dpi = 600, width = 230, height = 140, units = "mm")
+```
+
+```{r ignitions_bar_graph}
+ignitions <-
+  fread("C:/Users/noah.weidig/OneDrive - University of Florida/Thesis/large_files/ignitions.csv") %>%
+  merge(., fires, by = "Event_ID")
+
+ig_sum <- ignitions %>%
+  filter(NWCG_CAUSE_CLASSIFICATION !=
+           "Missing data/not specified/undetermined") %>%
+  group_by(wui_status, NWCG_GENERAL_CAUSE) %>%
+  summarize(count = n_distinct(Event_ID)) %>%
+  group_by(wui_status) %>%
+  mutate(percent =  count / sum(count)) %>% ungroup
+
+ig_plot <- ig_sum %>%
+  filter(NWCG_GENERAL_CAUSE != "Missing data/not specified/undetermined") %>%
+  ggplot(aes(x = reorder(NWCG_GENERAL_CAUSE, percent), y = percent)) +
+  geom_bar(aes(fill = wui_status), stat = "identity", position = "dodge") +
+  theme_bw() +
+  coord_flip() +
+  scale_fill_grey(labels = c("wui" = "WUI", "non_wui" = "non-WUI")) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "Large wildfire ignition source", y = "Percent", fill = "WUI status") +
+  theme(text = element_text(family = "Arial"),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank())
+
+ggsave(ig_plot, filename = "ignitions_plot.jpg",
+       dpi = 600, width = 230, height = 140, units = "mm")
+```
+
+```{r proportion_wui}
+prop_wui <- fires %>%
+  mutate(L3_KEY = str_replace(str_sub(L3_KEY, 5, -1),
+                              "Southern Michigan/Northern Indiana Drift Plains",
+                              "S Michigan/N Indiana Drift Plains")) %>%
+  group_by(L3_KEY) %>%
+  summarize(prop = n_distinct(Event_ID[wui_status == "wui"]) /
+              n_distinct(Event_ID),
+            n = n_distinct(Event_ID)) %>%
+  mutate(L3_KEY = paste0(L3_KEY, " (n = ",n,")"),
+         L3_KEY = factor(L3_KEY, levels = L3_KEY[order(prop)])) %>%
+  ggplot(aes(x = L3_KEY, y = prop)) +
+  geom_bar(stat = "identity", position = "identity") +
+  theme_bw() +
+  labs(x = "L3 ecoregion", y = "Proportion of large wildfires in the WUI") +
+  theme(text = element_text(family = "Arial"),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank(),
+        strip.background = element_rect(colour = "white", fill = "white"),
+        strip.text.x = element_text(size = 8)) +
+  scale_fill_grey(labels = c("wui" = "WUI", "non_wui" = "non-WUI")) +
+  coord_flip()
+
+ggsave(prop_wui, filename = "prop_wui_plot.jpg",
+       dpi = 600, width = 230, height = 140, units = "mm")
+```
+
+<br>
+
+#### ^1^School of Forest, Fisheries, and Geomatics Sciences, West Florida Research and Education Center, Institute of Food and Agricultural Sciences, University of Florida, Milton, FL, USA
+
+\newpage
+
+```{=tex}
+\endLandscape
+```
+`r wui_change_table`
+
+```{=tex}
+\endPortrait
+```
+![](figure_1.jpg){width="140.43mm"}
+
+### **Figure S1.** Level III ecoregions of the Eastern Temperate Forests ecoregion, as designated by the U.S. Environmental Protection Agency. The inset map shows the location of the Eastern Temperate Forests ecoregion in relation to the United States of America.
+
+```{=tex}
+\endLandscape
+```
+![](wui_change_l3.jpg){width="230mm"}
+
+### **Figure S2.** Decadal percent change in intermix (light grey) and interface (dark grey) wildland-urban interface (WUI) from 1990 to 2020 across Level III ecoregions of the eastern United States.
+
+<br>
+
+![](wui_count_bar.jpg){width="230mm"}
+
+### **Figure S3.** Change in the number of large (\>200 ha) wildfires inside the wildland-urban interface (WUI) from 1986 to 2021 across Level III ecoregions of the eastern United States.
+
+<br>
+
+![](non_wui_count_bar.jpg){width="230mm"}
+
+### Figure S4.Change in the number of large (\>200 ha) wildfires outside the wildland-urban interface (WUI) from 1986 to 2021 across Level III ecoregions of the eastern United States.
+
+<br>
+
+![](wui_area_bar.jpg){width="230mm"}
+
+### Figure S5. Change in the total area burned (hectares) by large (\>200 ha) wildfires inside the wildland-urban interface (WUI) from 1986 to 2021 across Level III ecoregions of the eastern United States.
+
+<br>
+
+![](non_wui_area_bar.jpg){width="230mm"}
+
+### Figure S6. Change in the total area burned (hectares) by large (\>200 ha) wildfires in the wildland-urban interface (WUI) from 1986 to 2021 across Level III ecoregions of the eastern United States.
+
+<br>
+
+![](wui_size_bar.jpg){width="230mm"}
+
+### Figure S7. Change in the average size (hectares) (± standard error) of large (\>200 ha) wildfires inside the wildland-urban interface (WUI) from 1986 to 2021 across Level III ecoregions of the eastern United States.
+
+<br>
+
+![](non_wui_size_bar.jpg){width="230mm"}
+
+### Figure S8. Change in the average size (hectares) (± standard error) of large (\>200 ha) wildfires outside the wildland-urban interface (WUI) from 1986 to 2021 across Level III ecoregions of the eastern United States.
+
+<br>
+
+![](ignitions_plot.jpg){width="230mm"}
+
+### Figure S9. Ignition sources for large (\>200 hectares) wildfires inside and outside the wildland-urban interface (WUI) from 1986 to 2021 in the eastern United States (n = 1,749).
+
+<br>
+
+![](prop_wui_plot.jpg){width="230mm"}
+
+### Figure S10. The proportion of large (\>200 hectares) wildfires inside the wildland-urban interface (WUI) across Level III (L3) ecoregions of the eastern United States between 1986 and 2021. The total number of large wildfires both inside and outside the WUI in each ecoregion is shown on the y-axis.
+
+```{=tex}
+\endPortrait
+```

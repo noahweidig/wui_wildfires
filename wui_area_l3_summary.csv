@@ -1,0 +1,265 @@
+L3_KEY,wui_type,year,percent
+33  East Central Texas Plains,interface,1990,0.007058587507054051
+33  East Central Texas Plains,intermix,1990,0.036304174296262745
+33  East Central Texas Plains,interface,2000,0.011678904784217509
+33  East Central Texas Plains,intermix,2000,0.03825651506039475
+33  East Central Texas Plains,interface,2010,0.014156040646809172
+33  East Central Texas Plains,intermix,2010,0.04913555692337901
+33  East Central Texas Plains,interface,2020,0.015124459337080898
+33  East Central Texas Plains,intermix,2020,0.054039189842567344
+35  South Central Plains,interface,1990,0.021160439694678804
+35  South Central Plains,intermix,1990,0.11067640234250313
+35  South Central Plains,interface,2000,0.03218225966655668
+35  South Central Plains,intermix,2000,0.11994256360241273
+35  South Central Plains,interface,2010,0.03210219244300271
+35  South Central Plains,intermix,2010,0.135398765958176
+35  South Central Plains,interface,2020,0.032963935445532506
+35  South Central Plains,intermix,2020,0.13646730475842522
+36  Ouachita Mountains,interface,1990,0.01721881747778867
+36  Ouachita Mountains,intermix,1990,0.06599830763144938
+36  Ouachita Mountains,interface,2000,0.025428497318669797
+36  Ouachita Mountains,intermix,2000,0.07956144131547348
+36  Ouachita Mountains,interface,2010,0.026545338764735936
+36  Ouachita Mountains,intermix,2010,0.0899606135830435
+36  Ouachita Mountains,interface,2020,0.02707768898241904
+36  Ouachita Mountains,intermix,2020,0.09005485644722341
+37  Arkansas Valley,interface,1990,0.030430684194006224
+37  Arkansas Valley,intermix,1990,0.0642902803047569
+37  Arkansas Valley,interface,2000,0.04440898008088566
+37  Arkansas Valley,intermix,2000,0.07761349647344477
+37  Arkansas Valley,interface,2010,0.04972314228351996
+37  Arkansas Valley,intermix,2010,0.09621314775763973
+37  Arkansas Valley,interface,2020,0.04789164967309755
+37  Arkansas Valley,intermix,2020,0.09470701670743678
+38  Boston Mountains,interface,1990,0.01791481185880479
+38  Boston Mountains,intermix,1990,0.05492495597030758
+38  Boston Mountains,interface,2000,0.022283849055845732
+38  Boston Mountains,intermix,2000,0.0785184251163608
+38  Boston Mountains,interface,2010,0.02396695249370806
+38  Boston Mountains,intermix,2010,0.10390480776031996
+38  Boston Mountains,interface,2020,0.02196485442389439
+38  Boston Mountains,intermix,2020,0.09866249743844892
+39  Ozark Highlands,interface,1990,0.018747343206630976
+39  Ozark Highlands,intermix,1990,0.07960482001713476
+39  Ozark Highlands,interface,2000,0.027300243741952238
+39  Ozark Highlands,intermix,2000,0.10013734479504505
+39  Ozark Highlands,interface,2010,0.03020040639112666
+39  Ozark Highlands,intermix,2010,0.11902189443425305
+39  Ozark Highlands,interface,2020,0.029641016163861392
+39  Ozark Highlands,intermix,2020,0.11517403410481031
+45  Piedmont,interface,1990,0.044193740091378594
+45  Piedmont,intermix,1990,0.29333769840448953
+45  Piedmont,interface,2000,0.060208255270831734
+45  Piedmont,intermix,2000,0.3332307854619959
+45  Piedmont,interface,2010,0.0653103947588252
+45  Piedmont,intermix,2010,0.36891696067863006
+45  Piedmont,interface,2020,0.06651680677243159
+45  Piedmont,intermix,2020,0.36873272995445583
+51  North Central Hardwood Forests,interface,1990,0.02077367731913984
+51  North Central Hardwood Forests,intermix,1990,0.06366431401812062
+51  North Central Hardwood Forests,interface,2000,0.024124852794421683
+51  North Central Hardwood Forests,intermix,2000,0.07693930291654501
+51  North Central Hardwood Forests,interface,2010,0.02819237630503033
+51  North Central Hardwood Forests,intermix,2010,0.0910366093207866
+51  North Central Hardwood Forests,interface,2020,0.02908776291366129
+51  North Central Hardwood Forests,intermix,2020,0.09305941286433002
+52  Driftless Area,interface,1990,0.00965221469117515
+52  Driftless Area,intermix,1990,0.021008373240390274
+52  Driftless Area,interface,2000,0.01080476671589975
+52  Driftless Area,intermix,2000,0.02618664241793633
+52  Driftless Area,interface,2010,0.012698740349900105
+52  Driftless Area,intermix,2010,0.03207257225149992
+52  Driftless Area,interface,2020,0.013280739521120539
+52  Driftless Area,intermix,2020,0.0340922601597775
+53  Southeastern Wisconsin Till Plains,interface,1990,0.02746847160194224
+53  Southeastern Wisconsin Till Plains,intermix,1990,0.02827863040717011
+53  Southeastern Wisconsin Till Plains,interface,2000,0.031360820160001183
+53  Southeastern Wisconsin Till Plains,intermix,2000,0.03620949131074009
+53  Southeastern Wisconsin Till Plains,interface,2010,0.03527237183845152
+53  Southeastern Wisconsin Till Plains,intermix,2010,0.037585767301778324
+53  Southeastern Wisconsin Till Plains,interface,2020,0.03667637751316251
+53  Southeastern Wisconsin Till Plains,intermix,2020,0.037996986092578434
+54  Central Corn Belt Plains,interface,1990,0.0073052531534327685
+54  Central Corn Belt Plains,intermix,1990,0.0114586952920101
+54  Central Corn Belt Plains,interface,2000,0.00793599994183999
+54  Central Corn Belt Plains,intermix,2000,0.012393986205749817
+54  Central Corn Belt Plains,interface,2010,0.008630287909248371
+54  Central Corn Belt Plains,intermix,2010,0.011610726501001305
+54  Central Corn Belt Plains,interface,2020,0.008761114019991719
+54  Central Corn Belt Plains,intermix,2020,0.011611341631693077
+55  Eastern Corn Belt Plains,interface,1990,0.01289295842690174
+55  Eastern Corn Belt Plains,intermix,1990,0.02762924152987281
+55  Eastern Corn Belt Plains,interface,2000,0.016003145658418105
+55  Eastern Corn Belt Plains,intermix,2000,0.03339236469417642
+55  Eastern Corn Belt Plains,interface,2010,0.018287989520499832
+55  Eastern Corn Belt Plains,intermix,2010,0.03705900371069348
+55  Eastern Corn Belt Plains,interface,2020,0.01839122140005478
+55  Eastern Corn Belt Plains,intermix,2020,0.03688829725411524
+56  Southern Michigan/Northern Indiana Drift Plains,interface,1990,0.05313482634540216
+56  Southern Michigan/Northern Indiana Drift Plains,intermix,1990,0.11362719977476628
+56  Southern Michigan/Northern Indiana Drift Plains,interface,2000,0.053981531610464976
+56  Southern Michigan/Northern Indiana Drift Plains,intermix,2000,0.14630985591413254
+56  Southern Michigan/Northern Indiana Drift Plains,interface,2010,0.05830124268758954
+56  Southern Michigan/Northern Indiana Drift Plains,intermix,2010,0.1542122642130007
+56  Southern Michigan/Northern Indiana Drift Plains,interface,2020,0.0582859764388453
+56  Southern Michigan/Northern Indiana Drift Plains,intermix,2020,0.1549872458174542
+57  Huron/Erie Lake Plains,interface,1990,0.029611643449945088
+57  Huron/Erie Lake Plains,intermix,1990,0.06297733669601106
+57  Huron/Erie Lake Plains,interface,2000,0.03059159979643759
+57  Huron/Erie Lake Plains,intermix,2000,0.0751205653920675
+57  Huron/Erie Lake Plains,interface,2010,0.03338665808804396
+57  Huron/Erie Lake Plains,intermix,2010,0.07846517988945555
+57  Huron/Erie Lake Plains,interface,2020,0.03229593542415687
+57  Huron/Erie Lake Plains,intermix,2020,0.0775781032834104
+59  Northeastern Coastal Zone,interface,1990,0.10805492540371231
+59  Northeastern Coastal Zone,intermix,1990,0.4703790672595611
+59  Northeastern Coastal Zone,interface,2000,0.10573548427869262
+59  Northeastern Coastal Zone,intermix,2000,0.496537437073451
+59  Northeastern Coastal Zone,interface,2010,0.11786387982911517
+59  Northeastern Coastal Zone,intermix,2010,0.49867199778743093
+59  Northeastern Coastal Zone,interface,2020,0.12057397879788656
+59  Northeastern Coastal Zone,intermix,2020,0.5006671407778416
+60  Northern Allegheny Plateau,interface,1990,0.06612860455754796
+60  Northern Allegheny Plateau,intermix,1990,0.2252073147153941
+60  Northern Allegheny Plateau,interface,2000,0.07251820865151964
+60  Northern Allegheny Plateau,intermix,2000,0.2636692797543679
+60  Northern Allegheny Plateau,interface,2010,0.07677798198081365
+60  Northern Allegheny Plateau,intermix,2010,0.30128412372969154
+60  Northern Allegheny Plateau,interface,2020,0.07552097381628259
+60  Northern Allegheny Plateau,intermix,2020,0.28844168212639276
+61  Erie Drift Plain,interface,1990,0.053966108659056475
+61  Erie Drift Plain,intermix,1990,0.20384869601690453
+61  Erie Drift Plain,interface,2000,0.05606525724781736
+61  Erie Drift Plain,intermix,2000,0.22824582913154218
+61  Erie Drift Plain,interface,2010,0.059683265493468515
+61  Erie Drift Plain,intermix,2010,0.24746390981910063
+61  Erie Drift Plain,interface,2020,0.059505145549763015
+61  Erie Drift Plain,intermix,2020,0.24511627136588568
+63  Middle Atlantic Coastal Plain,interface,1990,0.046012616794039465
+63  Middle Atlantic Coastal Plain,intermix,1990,0.1408857727840858
+63  Middle Atlantic Coastal Plain,interface,2000,0.053892994803770834
+63  Middle Atlantic Coastal Plain,intermix,2000,0.17033612507647686
+63  Middle Atlantic Coastal Plain,interface,2010,0.05950845273923257
+63  Middle Atlantic Coastal Plain,intermix,2010,0.18703777568251198
+63  Middle Atlantic Coastal Plain,interface,2020,0.05976086026839727
+63  Middle Atlantic Coastal Plain,intermix,2020,0.1847607801310817
+64  Northern Piedmont,interface,1990,0.10497645365353962
+64  Northern Piedmont,intermix,1990,0.14417764565564178
+64  Northern Piedmont,interface,2000,0.09909192801595847
+64  Northern Piedmont,intermix,2000,0.18211331097357678
+64  Northern Piedmont,interface,2010,0.10572099296978694
+64  Northern Piedmont,intermix,2010,0.18762769168479754
+64  Northern Piedmont,interface,2020,0.1073503458217245
+64  Northern Piedmont,intermix,2020,0.18680753146149445
+65  Southeastern Plains,interface,1990,0.031055152562476786
+65  Southeastern Plains,intermix,1990,0.13372309954140943
+65  Southeastern Plains,interface,2000,0.045477768894512466
+65  Southeastern Plains,intermix,2000,0.16074121188229257
+65  Southeastern Plains,interface,2010,0.04694415216356984
+65  Southeastern Plains,intermix,2010,0.18326644036277248
+65  Southeastern Plains,interface,2020,0.04716127940287949
+65  Southeastern Plains,intermix,2020,0.1822238778637636
+66  Blue Ridge,interface,1990,0.04190369073149749
+66  Blue Ridge,intermix,1990,0.2620365440582013
+66  Blue Ridge,interface,2000,0.05193571357104418
+66  Blue Ridge,intermix,2000,0.3154647269229334
+66  Blue Ridge,interface,2010,0.05591762258251019
+66  Blue Ridge,intermix,2010,0.3663830146534044
+66  Blue Ridge,interface,2020,0.056513439708598796
+66  Blue Ridge,intermix,2020,0.37184406290952393
+67  Ridge and Valley,interface,1990,0.09777098095474356
+67  Ridge and Valley,intermix,1990,0.19540112806191434
+67  Ridge and Valley,interface,2000,0.11504558599375282
+67  Ridge and Valley,intermix,2000,0.21856899131455718
+67  Ridge and Valley,interface,2010,0.12175690653976412
+67  Ridge and Valley,intermix,2010,0.2422522712827917
+67  Ridge and Valley,interface,2020,0.1220706781347746
+67  Ridge and Valley,intermix,2020,0.23981463570854736
+68  Southwestern Appalachians,interface,1990,0.042577018187548554
+68  Southwestern Appalachians,intermix,1990,0.1851194344774729
+68  Southwestern Appalachians,interface,2000,0.06044261895104504
+68  Southwestern Appalachians,intermix,2000,0.21771267967334954
+68  Southwestern Appalachians,interface,2010,0.06119458941683929
+68  Southwestern Appalachians,intermix,2010,0.24397252863209257
+68  Southwestern Appalachians,interface,2020,0.06132067612753859
+68  Southwestern Appalachians,intermix,2020,0.24937897622183566
+69  Central Appalachians,interface,1990,0.03577627337658885
+69  Central Appalachians,intermix,1990,0.24447180806022017
+69  Central Appalachians,interface,2000,0.038698447998944445
+69  Central Appalachians,intermix,2000,0.26866303020790233
+69  Central Appalachians,interface,2010,0.03938207991723576
+69  Central Appalachians,intermix,2010,0.27661733019753293
+69  Central Appalachians,interface,2020,0.038523544454911705
+69  Central Appalachians,intermix,2020,0.2613217310496501
+70  Western Allegheny Plateau,interface,1990,0.067505762319196
+70  Western Allegheny Plateau,intermix,1990,0.24460025909504823
+70  Western Allegheny Plateau,interface,2000,0.07448809997931442
+70  Western Allegheny Plateau,intermix,2000,0.28208117028326013
+70  Western Allegheny Plateau,interface,2010,0.07761482451260017
+70  Western Allegheny Plateau,intermix,2010,0.3089665811377418
+70  Western Allegheny Plateau,interface,2020,0.07674063699741852
+70  Western Allegheny Plateau,intermix,2020,0.29575650871704307
+71  Interior Plateau,interface,1990,0.03962896150159615
+71  Interior Plateau,intermix,1990,0.12088853474539124
+71  Interior Plateau,interface,2000,0.053848875484070136
+71  Interior Plateau,intermix,2000,0.14876538477216325
+71  Interior Plateau,interface,2010,0.058311353616736665
+71  Interior Plateau,intermix,2010,0.17340262137295134
+71  Interior Plateau,interface,2020,0.05869755626982871
+71  Interior Plateau,intermix,2020,0.1761245974510808
+72  Interior River Valleys and Hills,interface,1990,0.012615785710207706
+72  Interior River Valleys and Hills,intermix,1990,0.04152257278408267
+72  Interior River Valleys and Hills,interface,2000,0.014844633513720468
+72  Interior River Valleys and Hills,intermix,2000,0.04841442935102714
+72  Interior River Valleys and Hills,interface,2010,0.01600033420837355
+72  Interior River Valleys and Hills,intermix,2010,0.05489271825306544
+72  Interior River Valleys and Hills,interface,2020,0.016062589402855185
+72  Interior River Valleys and Hills,intermix,2020,0.0549808833983466
+73  Mississippi Alluvial Plain,interface,1990,0.016134220137629635
+73  Mississippi Alluvial Plain,intermix,1990,0.014716906766849953
+73  Mississippi Alluvial Plain,interface,2000,0.01776728664226185
+73  Mississippi Alluvial Plain,intermix,2000,0.015507520762578999
+73  Mississippi Alluvial Plain,interface,2010,0.017907153343971936
+73  Mississippi Alluvial Plain,intermix,2010,0.015769268655189995
+73  Mississippi Alluvial Plain,interface,2020,0.01774114065033436
+73  Mississippi Alluvial Plain,intermix,2020,0.015300151419688013
+74  Mississippi Valley Loess Plains,interface,1990,0.027823181830003613
+74  Mississippi Valley Loess Plains,intermix,1990,0.10812996400793447
+74  Mississippi Valley Loess Plains,interface,2000,0.037233921569785396
+74  Mississippi Valley Loess Plains,intermix,2000,0.11957935014480361
+74  Mississippi Valley Loess Plains,interface,2010,0.03678617427289916
+74  Mississippi Valley Loess Plains,intermix,2010,0.1402981650351449
+74  Mississippi Valley Loess Plains,interface,2020,0.03756607894059875
+74  Mississippi Valley Loess Plains,intermix,2020,0.14756374521647223
+75  Southern Coastal Plain,interface,1990,0.033957435967472145
+75  Southern Coastal Plain,intermix,1990,0.10567283418597756
+75  Southern Coastal Plain,interface,2000,0.04793078953208555
+75  Southern Coastal Plain,intermix,2000,0.11239822352997378
+75  Southern Coastal Plain,interface,2010,0.055322350752881944
+75  Southern Coastal Plain,intermix,2010,0.1277660055271807
+75  Southern Coastal Plain,interface,2020,0.05839949074823087
+75  Southern Coastal Plain,intermix,2020,0.13152220896565647
+82  Acadian Plains and Hills,interface,1990,0.014615264641648239
+82  Acadian Plains and Hills,intermix,1990,0.18526665496760364
+82  Acadian Plains and Hills,interface,2000,0.018391656319745747
+82  Acadian Plains and Hills,intermix,2000,0.21952491084932224
+82  Acadian Plains and Hills,interface,2010,0.01861561960382101
+82  Acadian Plains and Hills,intermix,2010,0.24864046453884844
+82  Acadian Plains and Hills,interface,2020,0.01866007456327458
+82  Acadian Plains and Hills,intermix,2020,0.24944320329878242
+83  Eastern Great Lakes Lowlands,interface,1990,0.05785661731548133
+83  Eastern Great Lakes Lowlands,intermix,1990,0.1795527898339294
+83  Eastern Great Lakes Lowlands,interface,2000,0.06416525971577387
+83  Eastern Great Lakes Lowlands,intermix,2000,0.19717185810789814
+83  Eastern Great Lakes Lowlands,interface,2010,0.0670121824036106
+83  Eastern Great Lakes Lowlands,intermix,2010,0.21344415141720108
+83  Eastern Great Lakes Lowlands,interface,2020,0.06879749840026401
+83  Eastern Great Lakes Lowlands,intermix,2020,0.21622320022406522
+84  Atlantic Coastal Pine Barrens,interface,1990,0.09651821821345986
+84  Atlantic Coastal Pine Barrens,intermix,1990,0.21841529022033226
+84  Atlantic Coastal Pine Barrens,interface,2000,0.10523519910626958
+84  Atlantic Coastal Pine Barrens,intermix,2000,0.21893839524970599
+84  Atlantic Coastal Pine Barrens,interface,2010,0.11392236815860647
+84  Atlantic Coastal Pine Barrens,intermix,2010,0.21595213302910637
+84  Atlantic Coastal Pine Barrens,interface,2020,0.11569251017513159
+84  Atlantic Coastal Pine Barrens,intermix,2020,0.21680650041157587

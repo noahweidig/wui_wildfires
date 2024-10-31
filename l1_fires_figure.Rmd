@@ -1,0 +1,180 @@
+---
+title: "l1_figure"
+author: "Noah Weidig"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      include = FALSE)
+
+rm(list = ls())
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, readxl, sf, ggspatial, cartography, scales,
+               colorspace, pals, gridExtra, cowplot, RColorBrewer, ggrepel,
+               patchwork, raster, units, ggpmisc, ggpubr, R.utils, misty, ragg,
+               usmap, ggridges)
+```
+
+```{r fires}
+fires <- read_excel("fires.xlsx") %>%
+  mutate(Ig_Date    =  as_date(Ig_Date),
+         year       =  as.numeric(year(as_date(Ig_Date)))) %>%
+  filter(area_ha    >  200,
+         Incid_Type == "Wildfire",
+         year       >= 1986 &
+         year       <= 2021) %>%
+  subset(select = c("STATE_NAME", "L3_KEY", "year",
+                    "WUIFLAG1990", "WUIFLAG2000",
+                    "WUIFLAG2010", "WUIFLAG2020",
+                    "WUICLASS1990", "WUICLASS2000",
+                    "WUICLASS2010", "WUICLASS2020",
+                    "Event_ID", "Ig_Date", "area_ha", "Shape_Area")) %>%
+  mutate(wui_status = case_when(((year %in% 1986:1995 & WUIFLAG1990 != 0) |
+                                 (year %in% 1996:2005 & WUIFLAG2000 != 0) |
+                                 (year %in% 2006:2015 & WUIFLAG2010 != 0) |
+                                 (year %in% 2016:2021 & WUIFLAG2020 != 0)) ~ "wui",
+                                TRUE ~ "non_wui")) %>%
+  group_by(Event_ID) %>%
+  mutate(wui_status = if(any(wui_status == "wui")) "wui" else "non_wui")
+```
+
+```{r ignitions}
+ignitions <-
+  read_csv("~/OneDrive - University of Florida/Thesis/large_files/ignitions.csv") %>%
+  merge(., fires, by = "Event_ID") %>%
+  filter(NWCG_CAUSE_CLASSIFICATION !=
+           "Missing data/not specified/undetermined") %>%
+  group_by(wui_status, NWCG_CAUSE_CLASSIFICATION) %>%
+  summarize(count = n_distinct(Event_ID)) %>%
+  group_by(wui_status) %>%
+  mutate(percent =  count / sum(count),
+         NWCG_CAUSE_CLASSIFICATION =
+           factor(NWCG_CAUSE_CLASSIFICATION,
+                  levels = rev(unique(NWCG_CAUSE_CLASSIFICATION))))
+
+ig_plot <- 
+  ggplot(ignitions, aes(x = wui_status, y = percent, fill = NWCG_CAUSE_CLASSIFICATION)) +
+  geom_bar(stat = "identity", position = "fill", width = 0.9) +
+  geom_text(aes(label = paste(percent(percent))),
+            position = position_fill(vjust = 0.5),
+            family = "Times",
+            color = "white", size = 4) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(values = c("#005AB5", "#DC3220")) +
+  scale_x_discrete(labels = c("non-WUI", "WUI"), expand = c(0.8, 0.8)) +
+  labs(x = "", y = "Percentage of large wildfires", fill = "") +
+  theme_bw() +
+  theme(text = element_text(family = "Times", color = "black"),
+        panel.grid.major.x = element_blank(),
+        legend.position = c(0.88, 0.93),
+        legend.background = element_blank())
+```
+
+```{r season}
+l1_season <- fires %>%
+  mutate(year_day = as.numeric(yday(Ig_Date)),  
+         decade   = as.factor(case_when(year >= 2012 & year <= 2021 ~ "d2010",
+                                        year >= 1986 & year <= 1995 ~ "d1990"))) %>%
+  filter(decade %in% c("d1990", "d2010")) %>%
+  distinct(Event_ID, L3_KEY, .keep_all = TRUE) %>% ungroup()
+
+silverman_bandwidth <- function(x) {
+  n <- length(x)
+  h <- 0.9 * min(sd(x), IQR(x) / 1.34) * n^(-1/5)
+  return(h)
+}
+
+bandwidths_l1 <- l1_season %>%
+  group_by(wui_status, decade) %>%
+  summarize(bandwidth = silverman_bandwidth(year_day)) %>%
+  ungroup()
+
+seas_plot <-
+  ggplot(l1_season,
+         aes(y = fct_rev(decade), x = year_day,
+             fill = wui_status, color = wui_status)) +
+  geom_density_ridges(scale = 0.9, alpha = 0.4,
+                      bandwidth = bandwidths_l1$bandwidth) +
+  scale_fill_manual(labels  = c("non-WUI", "WUI"), values  = c("#5D3A9B", "#E66100")) +
+  scale_color_manual(labels = c("non-WUI", "WUI"), values = c("#5D3A9B", "#E66100")) +
+  theme_bw() +
+  theme(text = element_text(color = "black", family = "Times"),
+        legend.position = c(0.11, 0.93),
+        legend.background = element_blank(),
+        axis.text.y = element_text(angle = 90, vjust = 0.5, hjust = 0.5)) +
+  labs(x = "", y = "Fire Density", fill = "", color = "") +
+  scale_x_continuous(limits = c(0, 366), breaks = c(1, 90, 180, 270, 361),
+                     labels = c("Jan", "Mar", "Jun", "Sep", "Dec")) +
+  scale_y_discrete(labels = c("1986-1995", "2012-2021"), expand = c(0.05, 0)) +
+    coord_cartesian(ylim = c(1, 2.7))
+```
+
+```{r scatterplot}
+fires_scatter <- fires %>%
+  group_by(wui_status, year) %>%
+  summarize(count         = n_distinct(Event_ID),
+            ha_burned     = sum(Shape_Area/10000),
+            avg_size      = mean(unique(area_ha)),
+            size_se       = sd(unique(area_ha)) / sqrt(length(unique(area_ha)))) %>%
+  mutate(size_b = case_when(avg_size > 3000 ~ "> 3,000",
+                            avg_size > 1000 & avg_size <= 3000 ~ "1,000-3,000",
+                            avg_size <= 1000 ~ "200 - 1,000",
+                            TRUE ~ "Unknown")) %>% ungroup
+
+count_bar <-
+  ggplot(data = fires_scatter,
+         aes(x = year, y = count, fill = wui_status, color = wui_status)) +
+  geom_point(size = 2, alpha = 0.4) +
+  geom_smooth(aes(x = year, y = count, color = wui_status),
+              method = "lm", se = TRUE, linewidth = 1, alpha = 0.2) +
+  theme_bw() +
+  theme(text = element_text(family = "Times", color = "black"),
+        legend.position = c(0.89, 0.93),
+        legend.background = element_blank()) +
+  labs(y = "Number of large wildfires", x = "Year", fill = "") +
+  scale_fill_manual(values  = c("#5D3A9B", "#E66100"), labels = c("non-WUI", "WUI")) +
+  scale_color_manual(values = c("#5D3A9B", "#E66100"), labels = c("non-WUI", "WUI")) +
+  guides(color = guide_legend(title = "", override.aes = list(fill = NA)))
+
+ha_burned_bar <-
+  ggplot(data = fires_scatter,
+         aes(x = year, y = ha_burned, fill = wui_status, color = wui_status)) +
+  geom_point(size = 2, alpha = 0.4) +
+  geom_smooth(aes(x = year, y = ha_burned, color = wui_status),
+              method = "lm", se = TRUE, linewidth = 1, alpha = 0.2) +
+  theme_bw() +
+  theme(text = element_text(family = "Times", color = "black"),
+        legend.position = c(0.89, 0.93),
+        legend.background = element_blank()) +
+  labs(y = "Area burned by large wildfires (ha)", x = "Year", fill = "") +
+  scale_fill_manual(values  = c("#5D3A9B", "#E66100"), labels = c("non-WUI", "WUI")) +
+  scale_color_manual(values = c("#5D3A9B", "#E66100"), labels = c("non-WUI", "WUI")) +
+  guides(color = guide_legend(title = "", override.aes = list(fill = NA)))
+
+avg_size_bar <-
+    ggplot(data = fires_scatter,
+         aes(x = year, y = avg_size, fill = wui_status, color = wui_status)) +
+  geom_point(size = 2, alpha = 0.4) +
+  geom_errorbar(aes(ymin = avg_size - size_se, ymax = avg_size + size_se),
+               width = 0.25, alpha = 0.4) +
+  geom_smooth(aes(x = year, y = avg_size, color = wui_status),
+              method = "lm", se = TRUE, linewidth = 1, alpha = 0.2) +
+  theme_bw() +
+  theme(text = element_text(family = "Times", color = "black"),
+        legend.position = c(0.89, 0.93),
+        legend.background = element_blank()) +
+  labs(y = "Average size of large wildfire (ha) ± SE", x = "Year", fill = "") +
+  scale_fill_manual(values  = c("#5D3A9B", "#E66100"), labels = c("non-WUI", "WUI")) +
+  scale_color_manual(values = c("#5D3A9B", "#E66100"), labels = c("non-WUI", "WUI")) +
+  guides(color = guide_legend(title = "", override.aes = list(fill = NA)))
+```
+
+```{r final_plot}
+p <- plot_grid(count_bar, ha_burned_bar, avg_size_bar, seas_plot, ncol = 2,
+               labels = c('a', 'b', 'c', 'd'),label_size = 17,
+               label_fontfamily = "Times")
+
+ggsave(p, file = "l1_fires_plot.jpg", dpi = 600, width = 10, height = 7)
+```

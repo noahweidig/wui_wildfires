@@ -1,0 +1,705 @@
+---
+title: "Large Wildfire Dynamics in the Wildland-urban Interface of the Eastern United States"
+author: "Noah C. Weidig^1^, Carissa L. Wonkka^1^, Michaella A. Ivey^1^, and Victoria M. Donovan^1^"
+output: html_document
+---
+
+#### [^1]School of Forest, Fisheries, and Geomatics Sciences, West Florida Research and Education Center, Institute of Food and Agricultural Sciences, University of Florida, Milton, FL, USA
+
+[^1]: Corresponding Author: Noah C. Weidig, [noah.weidig\@ufl.edu](mailto:noah.weidig@ufl.edu){.email}
+
+# Setup
+
+```{r setup, include=FALSE}
+rm(list = ls())
+pacman::p_load(tidyverse,readxl,writexl,data.table,forestmangr,scales,janitor,
+               broman,ggridges,ggpmisc,cowplot,lemon,png,xfun,officer,officedown,
+               flextable,Kendall,trend,pscl,broom,questionr,vegan,extrafont)
+
+set_flextable_defaults(font.size   = 12,
+                       padding     = 3,
+                       font.family = "Times New Roman",
+                       na_str      = "NA",
+                       nan_str     = "NaN")
+
+knitr::opts_chunk$set(message = F,
+                      warning = F,
+                      ft.align = "center",
+                      ft_max_row = 6,
+                      include = F,
+                      tab.topcaption = T)
+
+use_df_printer()
+
+options(dplyr.summarise.inform = F)
+```
+
+# WUI Statistics
+
+```{r wui_stats}
+wui <- read_csv("wui_area_sum_l3.csv", show_col_types = F)
+
+wui_sum <- wui %>%
+  group_by(year, wui_type) %>%
+  summarize(area = sum(percent * area)) %>% ungroup
+
+etf_area  <- round(sum(unique(wui[year = 1990]$area)))
+wui_1990  <- round(sum(wui_sum$area[wui_sum$year == 1990]), 0)
+wix_1990  <- round(sum(wui_sum$area[wui_sum$year == 1990 &
+                                      wui_sum$wui_type == "intermix"]), 0)
+wac_1990  <- round(sum(wui_sum$area[wui_sum$year == 1990 &
+                                      wui_sum$wui_type =="interface"]), 0)
+wui_2020  <- round(sum(wui_sum$area[wui_sum$year == 2020]), 0)
+wix_2020  <- round(sum(wui_sum$area[wui_sum$year == 2020 &
+                                      wui_sum$wui_type == "intermix"]), 0)
+wac_2020  <- round(sum(wui_sum$area[wui_sum$year == 2020 &
+                                      wui_sum$wui_type =="interface"]), 0)
+
+wui_perc  <- percent(wui_2020 / etf_area, accuracy = 1)
+```
+
+# Wildfire Processing
+
+```{r wildfires}
+wui_status_df <- read_csv("wui_status.csv", show_col_types = F)
+
+fires <- read_excel("fires.xlsx") %>%
+  mutate(Ig_Date    =  as_date(Ig_Date),
+         year       =  as.numeric(year(as_date(Ig_Date)))) %>%
+  filter(area_ha    >=  200,
+         Incid_Type == "Wildfire",
+         year       >= 1986 &
+         year       <= 2021) %>%
+  subset(select = c("STATE_NAME", "L3_KEY", "year",
+                    "WUIFLAG1990", "WUIFLAG2000",
+                    "WUIFLAG2010", "WUIFLAG2020",
+                    "WUICLASS1990", "WUICLASS2000",
+                    "WUICLASS2010", "WUICLASS2020",
+                    "Event_ID", "Ig_Date", "area_ha", "Shape_Area")) %>%
+  merge(., wui_status_df, by = "Event_ID")
+
+fires_l1_sum <- fires %>%
+  group_by(wui_status) %>%
+  summarize(count     = n_distinct(Event_ID),
+            ha_burned = round(sum(area_ha[!duplicated(Event_ID)]), 0),
+            avg_size  = format(round(mean(area_ha[!duplicated(Event_ID)]), 0),
+                               big.mark = ","),
+            size_se   = round(sqrt(var(area_ha[!duplicated(Event_ID)]) /
+                                     n_distinct(Event_ID)), 0)) %>%
+  pivot_wider(names_from  = wui_status,
+              values_from = c(count,avg_size, size_se, ha_burned)) %>%
+  mutate(across(contains(c("count", "burned")), ~ replace(., is.na(.), 0))) %>%
+  unite(., col = "avg_size_wui", avg_size_wui,
+        size_se_wui, na.rm = T, sep = " ± ") %>%
+  unite(., col = "avg_size_non_wui", avg_size_non_wui,
+        size_se_non_wui, na.rm = T, sep = " ± ") %>%
+  mutate(L3_KEY = "08  Eastern Temperate Forests", .before = count_non_wui)
+
+fires_l3_sum <- fires %>%
+  group_by(wui_status, L3_KEY) %>%
+  summarize(count     = n_distinct(Event_ID),
+            ha_burned = round(sum(area_ha[!duplicated(Event_ID)]), 0),
+            avg_size  = format(round(mean(area_ha[!duplicated(Event_ID)]), 0),
+                               big.mark = ","),
+            size_se   = round(sqrt(var(area_ha[!duplicated(Event_ID)]) /
+                                     n_distinct(Event_ID)), 0)) %>%
+  pivot_wider(names_from  = wui_status,
+              values_from = c(count, avg_size, size_se, ha_burned)) %>%
+  mutate(across(contains(c("count", "burned")), ~ replace(., is.na(.), 0))) %>%
+  unite(., col = "avg_size_wui", avg_size_wui,
+        size_se_wui, na.rm = T, sep = " ± ") %>%
+  unite(., col = "avg_size_non_wui", avg_size_non_wui, size_se_non_wui,
+        na.rm = T, sep = " ± ")
+```
+
+# Wildfire Statistics
+
+```{r wildfire_stats}
+total_fires       <- length(unique(fires$Event_ID))
+n_wui             <- length(unique(fires$Event_ID[fires$wui_status == "wui"]))
+perc_wui          <- percent(n_wui / total_fires)
+avg_wui_size      <- fires_l1_sum$avg_size_wui
+avg_non_wui_size  <- fires_l1_sum$avg_size_non_wui
+avg_wui_size_     <- as.numeric(str_replace(
+                       str_replace(
+                         fires_l1_sum$avg_size_wui, " ±.*", ""), ",", ""))
+avg_non_wui_size_ <- as.numeric(str_replace(
+                       str_replace(
+                         fires_l1_sum$avg_size_non_wui, " ±.*", ""), ",", ""))
+size_comp         <- percent((avg_wui_size_ - avg_non_wui_size_) /
+                               avg_non_wui_size_)
+area_wui          <- fires_l1_sum$ha_burned_wui
+area_non_wui      <- fires_l1_sum$ha_burned_non_wui
+area_total        <- area_wui + area_non_wui
+area_wui_M        <- paste(format(round(area_wui / 1e6, 1)), "million hectares")
+area_wui_perc     <- percent(area_wui / area_total, 1)
+perc_non_wui_area <- percent(area_non_wui / area_total, 1)
+all_l3_eco_n      <- length(unique(fires_l3_sum$L3_KEY))
+eco_temp_wui_n    <- length(unique(fires_l3_sum$
+                                     L3_KEY[fires_l3_sum$count_wui >= 10]))
+eco_temp_non_n    <- length(unique(fires_l3_sum$
+                                     L3_KEY[fires_l3_sum$count_non_wui >= 10]))
+```
+
+# Mann-Kendall Trend Test
+
+```{r mann_kendall}
+mk_l1 <- fires %>%
+  group_by(year, wui_status) %>%
+  summarize(count     = n_distinct(Event_ID),
+            ha_burned = round( sum(area_ha[!duplicated(Event_ID)]), 0),
+            avg_size  = round(mean(area_ha[!duplicated(Event_ID)]), 0))
+
+mk_l1_output <- mk_l1 %>%
+  group_by(wui_status) %>%
+  summarise(tau.count     = MannKendall(count)$tau,
+            p.value.count = MannKendall(count)$sl,
+            tau.size      = MannKendall(avg_size)$tau,
+            p.value.size  = MannKendall(avg_size)$sl,
+            tau.area      = MannKendall(ha_burned)$tau,
+            p.value.area  = MannKendall(ha_burned)$sl) %>%
+  mutate(L3_KEY = "08  Eastern Temperate Forests", .before = wui_status)
+
+mk_l3_wui <- fires %>%
+  subset(., L3_KEY %in% fires_l3_sum$L3_KEY[fires_l3_sum$count_wui >= 10]) %>%
+  group_by(year, wui_status, L3_KEY) %>%
+  summarize(count     = n_distinct(Event_ID),
+            ha_burned = round( sum(area_ha[!duplicated(Event_ID)]), 0),
+            avg_size  = round(mean(area_ha[!duplicated(Event_ID)]), 0)) %>%
+  ungroup() %>%
+  complete(., year = 1986:2021, L3_KEY, wui_status) %>%
+  mutate(year = as.numeric(year)) %>%
+  mutate_at(vars(count), ~replace(., is.na(.), 0)) %>%
+  mutate_at(vars(ha_burned), ~replace(., is.na(.), 0)) %>%
+  filter(wui_status %in% "wui")
+
+mk_l3_non_wui <- fires %>%
+  subset(., L3_KEY %in% fires_l3_sum$L3_KEY[fires_l3_sum$count_non_wui >= 10]) %>%
+  group_by(year, wui_status, L3_KEY) %>%
+  summarize(count     = n_distinct(Event_ID),
+            ha_burned = round( sum(area_ha[!duplicated(Event_ID)]), 0),
+            avg_size  = round(mean(area_ha[!duplicated(Event_ID)]), 0)) %>%
+  ungroup() %>%
+  complete(., year = 1986:2021, L3_KEY, wui_status) %>%
+  mutate(year = as.factor(year)) %>%
+  mutate_at(vars(count), ~replace(., is.na(.), 0)) %>%
+  mutate_at(vars(ha_burned), ~replace(., is.na(.), 0)) %>%
+  filter(wui_status %in% "non_wui")
+
+mk_l3_wui_output <- mk_l3_wui %>%
+  group_by(L3_KEY, wui_status) %>%
+  summarise(tau.count     = MannKendall(count)$tau,
+            p.value.count = MannKendall(count)$sl,
+            tau.size      = MannKendall(avg_size)$tau,
+            p.value.size  = MannKendall(avg_size)$sl,
+            tau.area      = MannKendall(ha_burned)$tau,
+            p.value.area  = MannKendall(ha_burned)$sl)
+
+mk_l3_nonwui_output <- mk_l3_non_wui %>%
+  group_by(L3_KEY, wui_status) %>%
+  summarise(tau.count     = MannKendall(count)$tau,
+            p.value.count = MannKendall(count)$sl,
+            tau.size      = MannKendall(avg_size)$tau,
+            p.value.size  = MannKendall(avg_size)$sl,
+            tau.area      = MannKendall(ha_burned)$tau,
+            p.value.area  = MannKendall(ha_burned)$sl)
+```
+
+# Occurrence Model
+
+```{r prob_glm}
+glm_l3_data <- fires %>%
+    subset(., L3_KEY %in% fires_l3_sum$
+             L3_KEY[(fires_l3_sum$count_wui >= 10) |
+                      (fires_l3_sum$count_non_wui >= 10)]) %>% 
+  group_by(L3_KEY, wui_status, year) %>%
+  summarize(count     = n_distinct(Event_ID),
+            avg_size  = round(mean(area_ha[!duplicated(Event_ID)]), 0),
+            ha_burned = round(sum(Shape_Area/10000), 0)) %>%
+  ungroup %>%
+  complete(year = 1986:2021, L3_KEY, wui_status) %>%
+  mutate(binary_count = count > 0) %>%
+  mutate_all(., ~ replace(., is.na(.), 0))
+
+l3_glm <- glm_l3_data %>%
+  # Southern Coastal Plain had non-WUI large wildfires every year
+  filter(!(L3_KEY == "75  Southern Coastal Plain" & wui_status == "non_wui")) %>%
+  group_by(L3_KEY, wui_status) %>%
+  nest() %>%
+  mutate(glm = map(data, ~ glm(binary_count ~ year,
+                               family = binomial(link = "logit"), data = .x)),
+         OR = map(glm, odds.ratio)) %>% 
+  unnest(OR) %>% 
+  ungroup %>%
+  mutate_if(is.numeric, round, digits = 3) %>%
+  select(L3_KEY, wui_status, OR, "2.5 %", "97.5 %", p) %>%
+  mutate(across(everything(), ~ case_when(. < 10000 ~  format(., scientific = F),
+                                          . >= 10000 ~ format(., scientific = T,
+                                                              digits = 3))),
+         across(everything(), ~ str_trim(., side = "both")),
+         across(OR:p, as.numeric)) %>%
+  slice(., seq(2, nrow(.), 2)) %>%
+  merge(., fires_l3_sum[, c("L3_KEY", "count_wui", "count_non_wui")],
+        by = "L3_KEY", all = T) %>%
+  filter(wui_status == "wui" & count_wui >= 10 |
+         wui_status == "non_wui" & count_non_wui >= 10) %>%
+  select(L3_KEY, wui_status, OR, "2.5 %", "97.5 %", p)
+```
+
+# Ignitions
+
+```{r ignitions}
+ignitions <-
+  fread("C:/Users/noah.weidig/OneDrive - University of Florida/Thesis/large_files/ignitions.csv") %>%
+  merge(., fires, by = "Event_ID")
+
+ig_sum <- ignitions %>%
+  filter(NWCG_CAUSE_CLASSIFICATION !=
+           "Missing data/not specified/undetermined") %>%
+  group_by(wui_status, NWCG_CAUSE_CLASSIFICATION) %>%
+  summarize(count = n_distinct(Event_ID)) %>%
+  group_by(wui_status) %>%
+  mutate(percent =  percent(count / sum(count),1)) %>% ungroup
+
+ig_sum_cause <- ignitions %>%
+  filter(NWCG_GENERAL_CAUSE != "Missing data/not specified/undetermined") %>%
+  group_by(wui_status, NWCG_GENERAL_CAUSE) %>%
+  summarize(count = n_distinct(Event_ID)) %>%
+  group_by(wui_status) %>%
+  mutate(percent =  percent(count / sum(count), 1)) %>% ungroup
+
+l1_prop_hum <- ignitions %>%
+  filter(NWCG_CAUSE_CLASSIFICATION !=
+           "Missing data/not specified/undetermined") %>%
+  group_by(wui_status, NWCG_CAUSE_CLASSIFICATION) %>%
+  summarize(count = n_distinct(Event_ID)) %>%
+  group_by(wui_status) %>%
+  summarize(prop_hum =  sum(count[NWCG_CAUSE_CLASSIFICATION == "Human"]) /
+              sum(count)) %>% ungroup %>%
+  pivot_wider(names_from  = wui_status, values_from = prop_hum) %>%
+  mutate(L3_KEY = "08  Eastern Temperate Forests", .before = non_wui)
+
+l3_prop_hum <- ignitions %>%
+  filter(NWCG_CAUSE_CLASSIFICATION !=
+           "Missing data/not specified/undetermined") %>%
+  group_by(wui_status, NWCG_CAUSE_CLASSIFICATION, L3_KEY) %>%
+  summarize(count = n_distinct(Event_ID)) %>%
+  group_by(wui_status, L3_KEY) %>%
+  summarize(prop_hum =  sum(count[NWCG_CAUSE_CLASSIFICATION == "Human"]) /
+              sum(count)) %>% ungroup %>%
+  pivot_wider(names_from  = wui_status,
+              values_from = prop_hum) %>%
+  rbind(l1_prop_hum, .)
+```
+
+# Ignition Model
+
+```{r ignitions_glm}
+ig_glm_data <- ignitions %>%
+  filter(., L3_KEY %in% fires_l3_sum$
+           L3_KEY[(fires_l3_sum$count_wui >= 10) |
+                    (fires_l3_sum$count_non_wui >= 10)] &
+           !is.na(NWCG_CAUSE_CLASSIFICATION) &
+      NWCG_CAUSE_CLASSIFICATION != "Missing data/not specified/undetermined") %>%
+  distinct(Event_ID, .keep_all = T) %>%
+  mutate(ig_source = case_when(NWCG_CAUSE_CLASSIFICATION == "Human" ~ 1,
+                               NWCG_CAUSE_CLASSIFICATION == "Natural" ~ 0)) %>%
+  filter(!is.na(ig_source))
+
+n_distinct(ig_glm_data$L3_KEY)
+
+filtered_ig <- ig_glm_data %>%
+  group_by(wui_status, L3_KEY, ig_source) %>%
+  summarize(unique_event_id_count = n_distinct(Event_ID), .groups = "drop") %>%
+  filter(unique_event_id_count > 2) %>%
+  ungroup() %>%
+  group_by(L3_KEY) %>%
+  filter(any(wui_status == "wui") && any(wui_status == "non_wui")) %>%
+  filter(any(ig_source == 0) && any(ig_source == 1)) %>%
+  filter(n() >= 4) %>%
+  ungroup()
+
+ig_glm_data <- ig_glm_data %>% filter(L3_KEY %in% filtered_ig$L3_KEY)
+
+ig_l1_glm <- ig_glm_data %>%
+  group_by(wui_status) %>%
+   nest() %>%
+  mutate(glm = map(data, ~ glm(ig_source ~ year,
+                               family = binomial(link = "logit"), data = .x)),
+         OR = map(glm, odds.ratio)) %>% 
+  unnest(OR) %>% 
+  ungroup %>%
+  mutate_if(is.numeric, round, digits = 3) %>%
+  select(wui_status, OR, "2.5 %", "97.5 %", p) %>%
+  mutate(across(everything(), ~ case_when(. < 10000 ~  format(., scientific = F),
+                                          . >= 10000 ~ format(., scientific = T,
+                                                              digits = 3))),
+         across(everything(), ~ str_trim(., side = "both")),
+         across(OR:p, as.numeric)) %>%
+  slice(., seq(2, nrow(.), 2)) %>%
+  mutate(L3_KEY = "08  Eastern Temperate Forests", .before = wui_status)
+
+ig_l3_glm <- ig_glm_data %>%
+  group_by(wui_status, L3_KEY) %>%
+  nest() %>%
+  mutate(glm = map(data, ~ glm(ig_source ~ year,
+                               family = binomial(link = "logit"), data = .x)),
+         OR = map(glm, odds.ratio)) %>% 
+  unnest(OR) %>% 
+  ungroup %>%
+  mutate_if(is.numeric, round, digits = 3) %>%
+  select(L3_KEY, wui_status, OR, "2.5 %", "97.5 %", p) %>%
+  mutate(across(everything(), ~ case_when(. < 10000 ~  format(., scientific = F),
+                                          . >= 10000 ~ format(., scientific = T,
+                                                              digits = 3))),
+         across(everything(), ~ str_trim(., side = "both")),
+         across(OR:p, as.numeric)) %>%
+  slice(., seq(2, nrow(.), 2)) %>%
+  rbind(ig_l1_glm, .) %>%
+  merge(., fires_l3_sum[, c("L3_KEY", "count_wui", "count_non_wui")],
+        by = "L3_KEY", all = T) %>%
+  filter(L3_KEY      == "08  Eastern Temperate Forests" |
+         (wui_status == "wui" & count_wui >= 10 | 
+          wui_status == "non_wui" & count_non_wui >= 10)) %>%
+  select(L3_KEY, wui_status, OR, "2.5 %", "97.5 %", p)
+```
+
+# Ignition Statistics
+
+```{r ignitions_stats}
+ignition_n        <- length(unique(ignitions$Event_ID))
+ignitions_known_n <- length(unique(ignitions$Event_ID
+                                   [ignitions$NWCG_CAUSE_CLASSIFICATION !=
+                                     "Missing data/not specified/undetermined"]))
+wui_perc_hum      <- ig_sum$percent[ig_sum$wui_status == "wui" &
+                                      ig_sum$NWCG_CAUSE_CLASSIFICATION == "Human"]
+non_wui_perc_hum  <- ig_sum$percent[ig_sum$wui_status == "non_wui" &
+                                      ig_sum$NWCG_CAUSE_CLASSIFICATION == "Human"]
+wui_perc_nat      <- ig_sum$percent[ig_sum$wui_status == "wui" &
+                                      ig_sum$NWCG_CAUSE_CLASSIFICATION ==
+                                      "Natural"]
+non_wui_perc_nat  <- ig_sum$percent[ig_sum$wui_status == "non_wui" &
+                                      ig_sum$NWCG_CAUSE_CLASSIFICATION ==
+                                      "Natural"]
+wui_ig_cause1     <- max(ig_sum_cause$percent[ig_sum_cause$wui_status == "wui"])
+wui_ig_cause2     <- ig_sum_cause$percent[ig_sum_cause$wui_status == "wui" &
+                                            ig_sum_cause$NWCG_GENERAL_CAUSE ==
+                                            "Debris and open burning"]
+```
+
+# Seasonality Figure
+
+```{r density_fig}
+l1_season <- fires %>%
+  mutate(year_day = as.numeric(yday(Ig_Date)),  
+         decade   = as.factor(case_when(year >= 2012 & year <= 2021 ~ "d2010",
+                                        year >= 1986 & year <= 1995 ~ "d1990"))) %>%
+  filter(decade %in% c("d1990", "d2010")) %>%
+  distinct(Event_ID, L3_KEY, .keep_all = T)
+
+l3_season <- fires %>%
+  mutate(year_day = as.numeric(yday(Ig_Date)),  
+         decade   = as.factor(case_when(year >= 2012 & year <= 2021 ~ "d2010",
+                                        year >= 1986 & year <= 1995 ~ "d1990"))) %>%
+  filter(decade %in% c("d1990", "d2010"),
+         L3_KEY %in% c("65  Southeastern Plains",  "67  Ridge and Valley",
+                       "69  Central Appalachians", "75  Southern Coastal Plain")) %>%
+  distinct(Event_ID, L3_KEY, .keep_all = T)
+
+silverman_bandwidth <- function(x) {
+  n <- length(x)
+  h <- 0.9 * min(sd(x), IQR(x) / 1.34) * n^(-1/5)
+  return(h)
+}
+
+bandwidths_l3 <- l3_season %>%
+  group_by(wui_status, L3_KEY, decade) %>%
+  summarize(bandwidth = silverman_bandwidth(year_day)) %>%
+  ungroup()
+
+bandwidths_l1 <- l1_season %>%
+  group_by(wui_status, decade) %>%
+  summarize(bandwidth = silverman_bandwidth(year_day)) %>%
+  ungroup()
+
+l1p <-
+  ggplot(l1_season,
+         aes(y = fct_rev(decade), x = year_day,
+             fill = wui_status, color = wui_status)) +
+  geom_density_ridges(scale = 0.9, alpha = 0.3,
+                      bandwidth = bandwidths_l1$bandwidth) +
+    scale_fill_manual(labels  = c("non-WUI", "WUI"),
+                    values  = c("#0072B240", "#D55E0040")) +
+  scale_color_manual(labels = c("non-WUI", "WUI"),
+                     values = c("#0072B2", "#D55E00"),
+                     guide  = "none") +
+  theme_bw() +
+  theme(text               = element_text(family = "Arial"),
+        legend.position    = "bottom",
+        panel.grid.minor.y = element_line(),
+        panel.grid.minor.x = element_blank()) +
+  labs(x = "", y = "Fire Density", fill = "WUI classification",
+       color = "WUI classification") +
+  scale_x_continuous(limits = c(0, 366), breaks = c(1, 90, 180, 270, 361),
+                     labels = c("Jan", "Mar", "Jun", "Sep", "Dec")) +
+  scale_y_discrete(labels = c("1986-1995", "2012-2021"), expand = c(0, 0))
+
+l3p <-
+  ggplot(l3_season,
+         aes(y = fct_rev(decade), x = year_day,
+             fill = wui_status, color = wui_status)) +
+  geom_density_ridges(scale = 0.9, alpha = 0.3,
+                      bandwidth = bandwidths_l3$bandwidth) +
+  facet_rep_wrap(~ L3_KEY, repeat.tick.labels = T) +
+    scale_fill_manual(labels  = c("non-WUI", "WUI"),
+                      values  = c("#0072B240", "#D55E0040")) +
+  scale_color_manual(labels = c("non-WUI", "WUI"),
+                     values = c("#0072B2", "#D55E00"),
+                     guide  = "none") +
+  theme_bw() +
+  theme(text               = element_text(family = "Arial"),
+        panel.grid.minor.y = element_line(),
+        panel.grid.minor.x = element_blank(),
+        strip.background   = element_rect(colour = NA, fill = NA),
+        strip.text.x       = element_text(size = 8)) +
+  labs(x = "", y = "Fire Density", fill = "WUI classification",
+       color = "WUI classification") +
+  guides(fill = 'none') +
+  scale_x_continuous(limits = c(0, 366), breaks = c(1, 90, 180, 270, 361),
+                     labels = c("Jan", "Mar", "Jun", "Sep", "Dec")) +
+  scale_y_discrete(labels = c("1986-1995", "2012-2021"), expand = c(0, 0))
+
+season_fig <- plot_grid(l1p, l3p,
+                        labels           = c('(a)', '(b)'),
+                        label_size       = 15,
+                        label_fontfamily = "Arial",
+                        label_fontface = "plain")
+
+ggsave(season_fig, file = "season_fig.png",
+       dpi = 300, width = 10, height = 5)
+```
+
+# Wildfire Table
+
+```{r wildfire_table}
+fires_comb <- rbind(fires_l1_sum, fires_l3_sum) %>%
+  merge(., l3_prop_hum, by = "L3_KEY", all = T) %>%
+  mutate(L3_KEY = str_sub(L3_KEY, 5, -1))
+
+write_xlsx(fires_comb, "fires_sum.xlsx")
+
+fires_table <- fires_comb %>%
+  mutate(across(everything(), ~ ifelse(. == "", NA, .)),
+         across(!contains(c("L3_KEY", "status", "size")),
+                ~ifelse(!is.na(.), format(as.numeric(.), big.mark = ","), .)),
+         across(c(wui, non_wui), ~ifelse(!is.na(.),
+                                         format(round(as.numeric(.), 2), nsmall = 2),
+                                         as.character(.))),
+         across(where(is.numeric), ~ifelse(!is.na(.), round(., digits = 2), "–")),
+         across(everything(), ~ ifelse(. == "NA", "–", .)),
+         across(everything(), ~ ifelse(is.na(.) | . == "\\s+|\\t+| ", "–", .))) %>%
+  arrange(if_else(L3_KEY == "Eastern Temperate Forests", 0, 1), L3_KEY)
+
+fires_tab <- fires_table %>%
+  flextable(.) %>%
+  set_header_labels(., L3_KEY         = "Ecoregion",
+                    count_wui         = "Number of WUI wildfires",
+                    count_non_wui     = "Number of non-WUI wildfires",
+                    avg_size_wui      = "Average WUI wildfire size ± SE (ha)",
+                    avg_size_non_wui  = "Average non-WUI wildfire size ± SE (ha)",
+                    ha_burned_wui     = "Area burned by WUI wildfires (ha)",
+                    ha_burned_non_wui = "Area burned by non-WUI wildfires (ha)",
+                    non_wui           = "Proportion non-WUI wildfires ignited by humans",
+                    wui               = "Proportion WUI wildfires ignited by humans") %>%
+  set_table_properties(., layout = "autofit") %>%
+  align_text_col(., align = "left", header = T, footer = T) %>%
+  align_nottext_col(., align = "center", header = T, footer = T) %>%
+  flextable::align(., align = c("left","center","center","center","center",
+                     "center","center","center","center"), part = "all") %>%
+  set_caption(., caption = "Table 1. Characteristics of large (>200 hectares) wildfires inside and outside the wildland-urban interface (WUI) for Level III ecoregions of the eastern United States between 1986 and 2021, including total number, average size (± standard error) (ha), total area burned (ha) (n = 2,388), and proportion of wildfires ignited by humans (n = 1,749). Dashes (–) represent the absence of a large wildfire for a given ecoregion.",
+              word_stylename = "Table Caption", align_with_table = F, autonum = T)
+
+cent_app_wui_n       <- fires_l3_sum$count_wui[fires_l3_sum$L3_KEY ==
+                                                 "69  Central Appalachians"]
+south_coast_wui_n    <- fires_l3_sum$count_wui[fires_l3_sum$L3_KEY ==
+                                                 "75  Southern Coastal Plain"]
+
+cent_app_wui_area    <- fires_l3_sum$ha_burned_wui[fires_l3_sum$L3_KEY ==
+                                                     "69  Central Appalachians"]
+south_coast_wui_area <- fires_l3_sum$ha_burned_wui[fires_l3_sum$L3_KEY ==
+                                                     "75  Southern Coastal Plain"]
+
+south_coast_wui_size <- fires_l3_sum$avg_size_wui[fires_l3_sum$L3_KEY ==
+                                                    "75  Southern Coastal Plain"]
+east_tex_wui_size    <- fires_l3_sum$avg_size_wui[fires_l3_sum$L3_KEY ==
+                                                    "33  East Central Texas Plains"]
+ark_vall_wui_size    <- fires_l3_sum$avg_size_wui[fires_l3_sum$L3_KEY ==
+                                                    "37  Arkansas Valley"]
+
+south_coast_non_wui_size <- fires_l3_sum$avg_size_non_wui[fires_l3_sum$L3_KEY ==
+                                                            "75  Southern Coastal Plain"]
+oua_mount_non_wui_size <- fires_l3_sum$avg_size_non_wui[fires_l3_sum$L3_KEY ==
+                                                          "36  Ouachita Mountains"]
+ark_vall_non_wui_size    <- fires_l3_sum$avg_size_non_wui[fires_l3_sum$L3_KEY ==
+                                                            "37  Arkansas Valley"]
+```
+
+# Regime Table
+
+```{r regime_table}
+mk_tab <- rbind(mk_l1_output, mk_l3_wui_output, mk_l3_nonwui_output) %>%
+  mutate(L3_KEY = str_trim(L3_KEY, side = "both"))
+
+regime <- merge(mk_tab, l3_glm,
+                by = c("L3_KEY", "wui_status"), all = T) %>%
+  merge(., ig_l3_glm, by = c("L3_KEY", "wui_status"), all = T) %>%
+  mutate(L3_KEY = str_sub(L3_KEY, 5, -1),
+         wui_status = factor(.$wui_status, levels = c("wui", "non_wui")))
+
+total             <- regime %>% filter(wui_status == "wui") %>% count %>% pull
+
+pos_wui_count     <- regime %>% filter(tau.count > 0 & wui_status == "wui") %>% count %>% pull
+count_wui_perc    <- (pos_wui_count / total) %>% percent
+pos_non_wui_count <- regime %>% filter(tau.count > 0 & wui_status == "non_wui") %>% count %>% pull
+count_non_wui_perc<- (pos_non_wui_count / total) %>% percent
+
+pos_wui_size      <- regime %>% filter(tau.size > 0 & wui_status == "wui") %>% count %>% pull
+size_wui_perc     <- (pos_wui_size / total) %>% percent
+pos_non_wui_size  <- regime %>% filter(tau.size > 0 & wui_status == "non_wui") %>% count %>% pull
+size_non_wui_perc <- (pos_non_wui_size / total) %>% percent
+
+pos_wui_area      <- regime %>% filter(tau.area > 0 & wui_status == "wui") %>% count %>% pull
+area_wui_perc1     <- (pos_wui_area / total) %>% percent
+pos_non_wui_area  <- regime %>% filter(tau.area > 0 & wui_status == "non_wui") %>% count %>% pull
+area_non_wui_perc <-(pos_non_wui_area / total) %>% percent
+
+regime_tab <- regime %>%
+  complete(., L3_KEY, wui_status) %>%
+  mutate(across(3:16, ~ as.numeric(paste(.)))) %>%
+  mutate_at(vars(starts_with("p.")),
+            ~ ifelse(. < 0.01 & is.numeric(.), "<0.01",
+                     sprintf("%.2f", round(., digits = 2)))) %>%
+  mutate(across(where(is.numeric), ~ sprintf("%.2f", round(., digits = 2))),
+         across(3:16, ~ifelse(is.na(.), "–", .)),
+         across(3:16, ~ifelse(. == "NA", "–", .))) %>%
+  arrange(if_else(L3_KEY == "Eastern Temperate Forests", 0, 1), L3_KEY) %>%
+  flextable() %>%
+  set_header_labels(., L3_KEY     = "Ecoregion",
+                    wui_status    = "WUI status",
+                    tau.count     = "\U03C4",
+                    p.value.count = "  p ",
+                    tau.size      = "\U03C4",
+                    p.value.size  = "  p ",
+                    tau.area      = "\U03C4",
+                    p.value.area  = "  p ",
+                    OR.x          = "odds ratio",
+                    "2.5 %.x"     = "2.5%",
+                    "97.5 %.x"    = "97.5%",
+                    p.x           = "  p ",
+                    OR.y          = "odds ratio",
+                    "2.5 %.y"     = "2.5%",
+                    "97.5 %.y"    = "97.5%",
+                    p.y           = "  p ") %>%
+  autofit(.) %>%
+  flextable::align(., align = "center", part = "all") %>%
+  flextable::align(., j = 1, align = "left", part = "all") %>%
+  merge_v(., j = "L3_KEY", target = "L3_KEY") %>%
+  add_header_row(., values = c("Ecoregion",
+                               "WUI status",
+                               "Number (#)",
+                               "Avg. size (ha)",
+                               "Area burned (ha)",
+                               "Annual probability of occurrence",
+                               "Probability of human ignition"),
+                 colwidths = c(1, 1, 2, 2, 2, 4, 4), top = T) %>%
+  merge_v(., j = c("L3_KEY", "wui_status"),
+          c("L3_KEY", "wui_status"), part = "header") %>%
+  labelizor(., j = c("wui_status"),
+            labels = c(wui = "WUI", non_wui = "non-WUI")) %>%
+  set_table_properties(layout = "autofit") %>%
+  set_caption(., caption = "Table 2. Changes in regime characteristics for large (>200 hectares) wildfires inside and outside the wildland-urban interface (WUI) across Level III ecoregions of the eastern United States from 1986 to 2021. The number, average size, and total area burned were assessed using the Mann-Kendall Trend Test. The annual probability of large wildfire occurrence and the probability of human ignition were also evaluated using a binomial generalized linear model. We only included ecoregions containing ten or more WUI or non-WUI large wildfires during the study period for these assessments. Dashes (–) indicate insufficient data for analysis.",
+              word_stylename = "Table Caption",
+              align_with_table = F, autonum = T) %>%
+  colformat_double(., big.mark = ",", digits = 2)
+
+regime %>%
+  mutate(wui_status = recode(wui_status, wui = "WUI", non_wui = "non-WUI")) %>%
+write_xlsx(., "regime_sum.xlsx")
+```
+
+# Regime Statistics
+
+```{r regime_stats}
+regime_stats_df <- regime %>%
+  filter(L3_KEY != "Eastern Temperate Forests")
+
+regime_sum <- regime_stats_df %>%
+  rename_with(~ sub("p\\.value", "p_value", .), starts_with("p.value")) %>%
+  select(1:8) %>%
+   pivot_longer(cols = -c(L3_KEY, wui_status), 
+               names_to = c(".value", "variable"), 
+               names_sep = "\\.") %>%
+  group_by(wui_status, variable) %>%
+  summarize(n_positiv = sum(tau > 0),
+            n_negativ = sum(tau < 0),
+            n_sig_pos = sum(p_value < 0.05 & tau > 0),
+            n_sig_neg = sum(p_value < 0.05 & tau < 0),
+            .groups = "drop")
+
+n_wui_eco <- 16
+n_non_eco <- 15
+
+n_pos_num_wui <- regime_sum %>%
+  filter(wui_status == "wui" & variable == "count") %>% pull(n_positiv)
+n_pos_num_non <- regime_sum %>%
+  filter(wui_status == "non_wui" & variable == "count") %>% pull(n_positiv)
+n_neg_num_wui <- regime_sum %>%
+  filter(wui_status == "wui" & variable == "count") %>% pull(n_negativ)
+n_neg_num_non <- regime_sum %>%
+  filter(wui_status == "non_wui" & variable == "count") %>% pull(n_negativ)
+
+n_sig_pos_num_wui <- regime_sum %>%
+  filter(wui_status == "wui" & variable == "count") %>% pull(n_sig_pos)
+n_sig_pos_num_non <- regime_sum %>%
+  filter(wui_status == "non_wui" & variable == "count") %>% pull(n_sig_pos)
+n_sig_neg_num_wui <- regime_sum %>%
+  filter(wui_status == "wui" & variable == "count") %>% pull(n_sig_neg)
+n_sig_neg_num_non <- regime_sum %>%
+  filter(wui_status == "non_wui" & variable == "count") %>% pull(n_sig_neg)
+
+n_pos_size_wui <- regime_sum %>%
+  filter(wui_status == "wui" & variable == "size") %>% pull(n_positiv)
+n_pos_size_non <- regime_sum %>%
+  filter(wui_status == "non_wui" & variable == "size") %>% pull(n_positiv)
+n_neg_size_wui <- regime_sum %>%
+  filter(wui_status == "wui" & variable == "size") %>% pull(n_negativ)
+n_neg_size_non <- regime_sum %>%
+  filter(wui_status == "non_wui" & variable == "size") %>% pull(n_negativ)
+
+n_sig_pos_size_wui <- regime_sum %>%
+  filter(wui_status == "wui" & variable == "size") %>% pull(n_sig_pos)
+n_sig_pos_size_non <- regime_sum %>%
+  filter(wui_status == "non_wui" & variable == "size") %>% pull(n_sig_pos)
+n_sig_neg_size_wui <- regime_sum %>%
+  filter(wui_status == "wui" & variable == "size") %>% pull(n_sig_neg)
+n_sig_neg_size_non <- regime_sum %>%
+  filter(wui_status == "non_wui" & variable == "size") %>% pull(n_sig_neg)
+
+n_pos_area_wui <- regime_sum %>%
+  filter(wui_status == "wui" & variable == "area") %>% pull(n_positiv)
+n_pos_area_non <- regime_sum %>%
+  filter(wui_status == "non_wui" & variable == "area") %>% pull(n_positiv)
+n_neg_area_wui <- regime_sum %>%
+  filter(wui_status == "wui" & variable == "area") %>% pull(n_negativ)
+n_neg_area_non <- regime_sum %>%
+  filter(wui_status == "non_wui" & variable == "area") %>% pull(n_negativ)
+
+n_sig_pos_area_wui <- regime_sum %>%
+  filter(wui_status == "wui" & variable == "area") %>% pull(n_sig_pos)
+n_sig_pos_area_non <- regime_sum %>%
+  filter(wui_status == "non_wui" & variable == "area") %>% pull(n_sig_pos)
+n_sig_neg_area_wui <- regime_sum %>%
+  filter(wui_status == "wui" & variable == "area") %>% pull(n_sig_neg)
+n_sig_neg_area_non <- regime_sum %>%
+  filter(wui_status == "non_wui" & variable == "area") %>% pull(n_sig_neg)
+```
