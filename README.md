@@ -1,6 +1,6 @@
 # Code and Data for:
 
-## "Changing Large Wildfire Dynamics in the wildland-urban interface of the eastern United States"
+## "Changing large wildfire dynamics in the wildland–urban interface of the eastern United States"
 
 [![DOI:10.1071/WF24110](https://img.shields.io/badge/DOI-10.1071%2FWF24110-B31B1B.svg)](https://doi.org/10.1071/WF24110)
 
