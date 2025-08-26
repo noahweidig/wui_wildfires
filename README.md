@@ -14,6 +14,11 @@ Noah C. Weidig<sup>1</sup>, Carissa L. Wonkka<sup>1</sup>, Michaella A. Ivey<sup
 
 **Plain Language Summary**: Large wildfires are increasing across the eastern United States. Quantifying the risk to human life and property is imperative. We find large wildfires burn disproportionately in areas with high housing density but increases in the number of large wildfires have occurred in more remote areas with low housing density.
 
+> ### Key Results:
+> 1. WUI wildfires in the eastern US comprised 45% of all large wildfires and 55% of the area burned.
+> 2. WUI wildfires were on average 46% larger than non-WUI wildfires and are becoming more frequent in the spring.
+> 3. Most increases in wildfire number and area burned occurred outside of the WUI.
+
 > [!NOTE]
 > Keywords: development, exposure, fire regime, housing growth, risk, sprawl, urbanisation, wildland fire, wildland–urban interface.
 
