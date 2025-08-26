@@ -10,10 +10,12 @@ Noah C. Weidig<sup>1</sup>, Carissa L. Wonkka<sup>1</sup>, Michaella A. Ivey<sup
 
 **Corresponding Author's email**: noah.weidig\@ufl.edu
 
-
 **Journal**: International Journal of Wildland Fire
 
 **Plain Language Summary**: Large wildfires are increasing across the eastern United States. Quantifying the risk to human life and property is imperative. We find large wildfires burn disproportionately in areas with high housing density but increases in the number of large wildfires have occurred in more remote areas with low housing density.
+
+> [!INFO]
+> Keywords: development, exposure, fire regime, housing growth, risk, sprawl, urbanisation, wildland fire, wildland–urban interface.
 
 ## Repository Structure
 ```
